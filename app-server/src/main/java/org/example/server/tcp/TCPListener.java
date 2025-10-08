@@ -3,45 +3,76 @@ package org.example.server.tcp;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * TCPListener: escucha conexiones TCP entrantes en el puerto configurado.
- * Al aceptar una conexión, delega la creación de la sesión a SessionFactory.
- */
 public class TCPListener {
 
     private final int puerto;
     private final ClientRegistry registro;
     private final SessionFactory sessionFactory;
-    private final ExecutorService pool;
+    private ExecutorService pool;
+    private volatile boolean running = false;
+    private ServerSocket serverSocket;
 
     public TCPListener(int puerto, ClientRegistry registro, SessionFactory sessionFactory) {
         this.puerto = puerto;
         this.registro = registro;
         this.sessionFactory = sessionFactory;
-        this.pool = Executors.newCachedThreadPool();
     }
 
     public void iniciar() {
-        try (ServerSocket serverSocket = new ServerSocket(puerto)) {
+        running = true;
+        pool = Executors.newCachedThreadPool();
+
+        try {
+            serverSocket = new ServerSocket(puerto);
             System.out.println("Servidor escuchando en puerto: " + puerto);
 
-            while (true) {
-                Socket clienteSocket = serverSocket.accept();
-                System.out.println("Nueva conexión entrante desde: " + clienteSocket.getInetAddress().getHostAddress());
+            while (running) {
+                try {
+                    Socket clienteSocket = serverSocket.accept();
+                    System.out.println("Nueva conexión entrante desde: " + clienteSocket.getInetAddress().getHostAddress());
 
-                // Crear ClientSession mediante SessionFactory
-                ClientSession sesion = sessionFactory.create(clienteSocket);
-
-                // Ejecutar la sesión en el pool de hilos
-                pool.execute(sesion);
+                    ClientSession sesion = sessionFactory.create(clienteSocket);
+                    pool.execute(sesion);
+                } catch (SocketException se) {
+                    // Si se cerró el serverSocket intencionalmente para detener el listener, salimos silenciosamente
+                    if (!running) break;
+                    throw se;
+                }
             }
 
         } catch (IOException e) {
-            System.err.println("Error en TCPListener: " + e.getMessage());
-            e.printStackTrace();
+            if (running) {
+                System.err.println("Error en TCPListener: " + e.getMessage());
+                e.printStackTrace();
+            } else {
+                System.out.println("TCPListener detenido.");
+            }
+        } finally {
+            shutdownPool();
+            closeServerSocketQuietly();
+        }
+    }
+
+    public void stop() {
+        running = false;
+        closeServerSocketQuietly();
+        shutdownPool();
+        System.out.println("Deteniendo TCPListener en puerto: " + puerto);
+    }
+
+    private void closeServerSocketQuietly() {
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) serverSocket.close();
+        } catch (IOException ignored) {}
+    }
+
+    private void shutdownPool() {
+        if (pool != null) {
+            pool.shutdownNow();
         }
     }
 }

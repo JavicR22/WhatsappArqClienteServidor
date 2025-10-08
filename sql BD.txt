@@ -1,0 +1,44 @@
+CREATE TABLE usuario (
+    id VARCHAR(50) PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    correo VARCHAR(100) UNIQUE NOT NULL,
+    contrasena VARCHAR(200) NOT NULL,
+    salt VARCHAR(200) NOT NULL
+);
+
+
+INSERT INTO usuario (id, nombre, correo, contrasena, salt)
+VALUES (
+    'u1',
+    'prueba',
+    'cliente@uni.edu',
+    'LRPvKkTNjdILv8lENLfmQFTxtfbzmHmyvrRT2ZZ69Mg=',
+    '0/sKdQ7bAk0LyXLXZcvEnQ=='
+);
+INSERT INTO usuario (id, nombre, correo, contrasena, salt)
+VALUES (
+    'u2',
+    'prueba2',
+    'cliente2@uni.edu',
+    'T2jZol03t7oDpvdHGA8uniuuNUvJ17fUBYyhhEFgTFo=',
+    'HV7/MXjt7IVP5oNuoKUtqQ=='
+);
+
+INSERT INTO usuario (id, nombre, correo, contrasena, salt)
+VALUES (
+    'u3',
+    'prueba3',
+    'cliente3@uni.edu',
+    '8XT7TY44aLSJGsrkEe4GHP2c8hD6gw+WnotjdPTwUTw=',
+    'szcjl2QIZnCq19sae9ik3g=='
+);
+
+
+INSERT INTO usuario (id, nombre, correo, contrasena, salt)
+VALUES (
+    'u4',
+    'prueba4',
+    'cliente4@uni.edu',
+    'ANMmaMGXm6dkBHXTZDW05ObOToMwzGxwwYZ7xbTeTDk=',
+    '4aZvPFiVTdPj3NffDYOKPw=='
+);

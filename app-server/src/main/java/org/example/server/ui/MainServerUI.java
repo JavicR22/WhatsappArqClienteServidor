@@ -1,117 +1,80 @@
 package org.example.server.ui;
 
-import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
+import org.example.server.EmbeddedServer;
 
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 
-public class MainServerUI extends Application {
+public class MainServerUI extends JFrame {
 
-    private TextArea taLogs;
-    private Button btnToggle;
+    private JTextArea taLogs;
+    private JButton btnToggle;
     private Process serverProcess;
 
-    @Override
-    public void start(Stage stage) {
-        taLogs = new TextArea();
+    public MainServerUI() {
+        setTitle("Servidor - Control");
+        setSize(800, 500);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout(8, 8));
+
+        taLogs = new JTextArea();
         taLogs.setEditable(false);
-        taLogs.setWrapText(true);
+        taLogs.setLineWrap(true);
+        taLogs.setWrapStyleWord(true);
 
-        btnToggle = new Button("Iniciar servidor");
-        btnToggle.setOnAction(e -> {
-            if (serverProcess == null || !serverProcess.isAlive()) startServerProcess();
-            else stopServerProcess();
-        });
+        JScrollPane scroll = new JScrollPane(taLogs);
+        add(scroll, BorderLayout.CENTER);
 
-        VBox root = new VBox(8, btnToggle, new Separator(), taLogs);
-        root.setPadding(new Insets(10));
-        Scene scene = new Scene(root, 800, 500);
-        stage.setScene(scene);
-        stage.setTitle("Servidor - Control");
-        stage.show();
+        btnToggle = new JButton("Iniciar servidor");
+        btnToggle.addActionListener(this::onToggleServer);
+
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        top.add(btnToggle);
+        add(top, BorderLayout.NORTH);
 
         log("Interfaz de control servidor lista.");
     }
 
-    private void startServerProcess() {
-        try {
-            // Asume que el jar del servidor se encuentra en el mismo directorio
-            String jarName = "app-server-1.0-SNAPSHOT-jar-with-dependencies.jar";
-            ProcessBuilder pb = new ProcessBuilder("java", "-jar", jarName);
-            pb.redirectErrorStream(true);
-            serverProcess = pb.start();
-
-            btnToggle.setText("Apagar servidor");
-            log("Servidor iniciado (proceso). PID: " + serverProcess.pid());
-
-            // Leer la salida y volcar a TextArea
-            InputStream is = serverProcess.getInputStream();
-            BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-
-            Executors.newSingleThreadExecutor().submit(() -> {
-                String line;
-                try {
-                    while ((line = br.readLine()) != null) {
-                        log(line);
-                    }
-                } catch (IOException e) {
-                    log("Error leyendo salida del servidor: " + e.getMessage());
-                }
-            });
-
-            // Opcional: vigilar terminación del proceso para actualizar UI
-            Executors.newSingleThreadExecutor().submit(() -> {
-                try {
-                    int exit = serverProcess.waitFor();
-                    log("Proceso servidor finalizó con código: " + exit);
-                    Platform.runLater(() -> btnToggle.setText("Iniciar servidor"));
-                } catch (InterruptedException e) {
-                    log("Watcher interrumpido.");
-                }
-            });
-
-        } catch (IOException e) {
-            log("❌ No se pudo iniciar el servidor: " + e.getMessage());
+    private void onToggleServer(ActionEvent e) {
+        if (serverProcess == null || !serverProcess.isAlive()) {
+            startServerProcess();
+        } else {
+            stopServerProcess();
         }
+    }
+
+
+
+    private void startServerProcess() {
+        if (EmbeddedServer.isRunning()) {
+            log("Servidor ya está corriendo.");
+            return;
+        }
+        EmbeddedServer.start();
+        btnToggle.setText("Apagar servidor");
+        log("Servidor iniciado (embebido).");
     }
 
     private void stopServerProcess() {
-        if (serverProcess != null && serverProcess.isAlive()) {
-            serverProcess.destroy(); // intento educado
-            try {
-                boolean exited = serverProcess.waitFor(5_000, java.util.concurrent.TimeUnit.MILLISECONDS);
-                if (!exited) {
-                    serverProcess.destroyForcibly();
-                }
-                log("Servidor detenido.");
-                btnToggle.setText("Iniciar servidor");
-            } catch (InterruptedException e) {
-                log("Error deteniendo servidor: " + e.getMessage());
-            }
-        } else {
+        if (!EmbeddedServer.isRunning()) {
             log("Servidor no está corriendo.");
-            btnToggle.setText("Iniciar servidor");
+        } else {
+            EmbeddedServer.stop();
+            log("Servidor detenido (solicitado).");
         }
+        btnToggle.setText("Iniciar servidor");
     }
 
-    private void log(String t) {
-        Platform.runLater(() -> taLogs.appendText(t + "\n"));
-    }
 
-    @Override
-    public void stop() throws Exception {
-        stopServerProcess();
-        super.stop();
+    private void log(String text) {
+        SwingUtilities.invokeLater(() -> taLogs.append(text + "\n"));
     }
 
     public static void main(String[] args) {
-        launch(args);
+        SwingUtilities.invokeLater(() -> new MainServerUI().setVisible(true));
     }
 }
