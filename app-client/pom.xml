@@ -14,7 +14,7 @@
     <artifactId>app-client</artifactId>
 
     <properties>
-        <mainClass>org.example.client.ui.MainClientUI</mainClass>
+        <mainClass>org.example.client.ui.ClienteUI</mainClass>
     </properties>
 
     <dependencies>
