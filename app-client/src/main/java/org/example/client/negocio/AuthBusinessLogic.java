@@ -11,14 +11,14 @@ import java.util.UUID;
  * Coordina la comunicación con el servidor y gestiona el estado del usuario.
  */
 public class AuthBusinessLogic {
-    
+
     private final GestorComunicacion gestorComunicacion;
     private Usuario usuarioActual;
-    
+
     public AuthBusinessLogic(GestorComunicacion gestorComunicacion) {
         this.gestorComunicacion = gestorComunicacion;
     }
-    
+
     /**
      * Lógica de autenticación: conecta al servidor y valida credenciales
      */
@@ -26,38 +26,42 @@ public class AuthBusinessLogic {
         try {
             // Crear usuario temporal para autenticación
             Usuario usuario = new Usuario(null, null, correo, null, null);
-            
+
             // Crear mensaje de autenticación
             MensajeAutenticacion mensajeAuth = new MensajeAutenticacion(
-                UUID.randomUUID().toString(),
-                usuario,
-                correo,
-                contrasena
+                    UUID.randomUUID().toString(),
+                    usuario,
+                    correo,
+                    contrasena
             );
-            
+
             // Enviar al servidor
             gestorComunicacion.enviarMensaje(mensajeAuth);
-            
+
             // Esperar respuesta
             Mensaje respuesta = gestorComunicacion.recibirMensaje();
-            
+
             if (respuesta instanceof MensajeRespuesta mr) {
                 if (mr.isExito()) {
-                    // Actualizar usuario con datos del servidor
                     usuario.setId(mr.getUsuarioId());
+                    usuario.setNombre("Tú");
+                    usuario.setRol("Estudiante");
                     this.usuarioActual = usuario;
+                    System.out.println("✅ Usuario autenticado: " + correo);
                     return true;
+                } else {
+                    System.err.println("❌ Autenticación fallida: " + mr.getMensaje());
                 }
             }
-            
+
             return false;
-            
+
         } catch (Exception e) {
             System.err.println("Error en lógica de autenticación: " + e.getMessage());
             return false;
         }
     }
-    
+
     /**
      * Cierra la sesión del usuario actual
      */
@@ -66,14 +70,14 @@ public class AuthBusinessLogic {
         gestorComunicacion.cerrarConexion();
         System.out.println("Sesión cerrada para usuario: " + usuarioId);
     }
-    
+
     /**
      * Obtiene el usuario autenticado
      */
     public Usuario obtenerUsuarioActual() {
         return usuarioActual;
     }
-    
+
     /**
      * Verifica si hay un usuario autenticado
      */

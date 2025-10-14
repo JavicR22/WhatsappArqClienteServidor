@@ -1,59 +1,56 @@
 package org.example.client.modelo;
 
-import java.io.Serializable;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
-/**
- * MODELO DE DOMINIO
- * Representa un canal de comunicación entre usuarios.
- */
-public class Canal implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public class Canal {
     private String id;
     private String nombre;
-    private String descripcion;
-    private LocalDateTime fechaCreacion;
-    private List<Usuario> miembros = new ArrayList<>();
+    private boolean privado;
+    private List<String> miembros; // emails o ids de usuario
+    private String creadorEmail;
+    private long creadoEn;
 
-    public Canal() {
-        this.fechaCreacion = LocalDateTime.now();
+    public Canal(String nombre, boolean privado, String creadorEmail, List<String> miembros) {
+        this.id = UUID.randomUUID().toString();
+        this.nombre = nombre;
+        this.privado = privado;
+        this.creadorEmail = creadorEmail;
+        this.miembros = (miembros == null) ? new ArrayList<>() : new ArrayList<>(miembros);
+        if (!this.miembros.contains(creadorEmail)) {
+            this.miembros.add(creadorEmail);
+        }
+        this.creadoEn = System.currentTimeMillis();
     }
 
-    public Canal(String id, String nombre, String descripcion) {
+    public Canal(String id, String nombre, boolean privado, String creadorEmail, List<String> miembros, long creadoEn) {
         this.id = id;
         this.nombre = nombre;
-        this.descripcion = descripcion;
-        this.fechaCreacion = LocalDateTime.now();
+        this.privado = privado;
+        this.creadorEmail = creadorEmail;
+        this.miembros = (miembros == null) ? new ArrayList<>() : new ArrayList<>(miembros);
+        this.creadoEn = creadoEn;
     }
 
-    public void agregarUsuario(Usuario u) {
-        if (!miembros.contains(u)) miembros.add(u);
-    }
-
-    public void removerUsuario(Usuario u) {
-        miembros.remove(u);
-    }
-
-    // Getters y Setters
+    // Getters y setters
     public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
     public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-    public LocalDateTime getFechaCreacion() { return fechaCreacion; }
-    public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
-    public List<Usuario> getMiembros() { return miembros; }
+    public boolean isPrivado() { return privado; }
+    public List<String> getMiembros() { return miembros; }
+    public String getCreadorEmail() { return creadorEmail; }
+    public long getCreadoEn() { return creadoEn; }
+
+    public void addMiembro(String usuarioEmail) {
+        if (!miembros.contains(usuarioEmail)) miembros.add(usuarioEmail);
+    }
+
+    public void removeMiembro(String usuarioEmail) {
+        miembros.remove(usuarioEmail);
+    }
 
     @Override
     public String toString() {
-        return "Canal{" +
-                "id='" + id + '\'' +
-                ", nombre='" + nombre + '\'' +
-                ", miembros=" + miembros.size() +
-                '}';
+        return nombre + (privado ? " (privado)" : " (público)");
     }
 }

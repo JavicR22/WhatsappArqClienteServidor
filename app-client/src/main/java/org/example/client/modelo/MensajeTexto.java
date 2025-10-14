@@ -8,6 +8,7 @@ public class MensajeTexto extends Mensaje {
     private static final long serialVersionUID = 1L;
 
     private String contenido;
+    private String destinatario; // correo del destinatario (null si es para canal)
 
     public MensajeTexto() {
         super();
@@ -28,6 +29,14 @@ public class MensajeTexto extends Mensaje {
         this.contenido = contenido;
     }
 
+    public String getDestinatario() {
+        return destinatario;
+    }
+
+    public void setDestinatario(String destinatario) {
+        this.destinatario = destinatario;
+    }
+
     @Override
     public String getTipo() {
         return "MensajeTexto";
@@ -39,6 +48,7 @@ public class MensajeTexto extends Mensaje {
                 "id='" + getId() + '\'' +
                 ", remitente=" + getRemitente() +
                 ", contenido='" + contenido + '\'' +
+                ", destinatario='" + destinatario + '\'' +
                 ", fechaHora=" + getFechaHora() +
                 '}';
     }

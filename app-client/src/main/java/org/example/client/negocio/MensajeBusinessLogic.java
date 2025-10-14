@@ -33,9 +33,9 @@ public class MensajeBusinessLogic {
             }
 
             MensajeTexto mensaje = new MensajeTexto(
-                UUID.randomUUID().toString(),
-                usuario,
-                contenido
+                    UUID.randomUUID().toString(),
+                    usuario,
+                    contenido
             );
 
             gestorComunicacion.enviarMensaje(mensaje);
