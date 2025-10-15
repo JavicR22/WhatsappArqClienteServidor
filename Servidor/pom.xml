@@ -12,12 +12,14 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>app-common</module>
-        <module>app-server</module>
-        <module>app-client</module>
+
         <module>Dominio</module>
         <module>Comunicacion</module>
         <module>InfraestructuraDatos</module>
+        <module>LogicaNegocio</module>
+        <module>Intermediarios</module>
+        <module>Presentacion</module>
+        <module>Base64Encoder</module>
     </modules>
 
     <properties>
@@ -26,7 +28,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <dependencyManagement>
+
         <dependencies>
             <!-- Librerías comunes -->
             <dependency>
@@ -53,11 +55,7 @@
                 <version>2.0.12</version>
             </dependency>
 
-            <dependency>
-                <groupId>ch.qos.logback</groupId>
-                <artifactId>logback-classic</artifactId>
-                <version>1.5.6</version>
-            </dependency>
+
 
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
@@ -72,6 +70,7 @@
                 <version>5.10.2</version>
                 <scope>test</scope>
             </dependency>
+
+
         </dependencies>
-    </dependencyManagement>
 </project>

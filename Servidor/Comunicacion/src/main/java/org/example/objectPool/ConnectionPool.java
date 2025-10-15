@@ -3,6 +3,8 @@ package org.example.objectPool;
 import org.example.configuracioConexion.Connection;
 import org.example.entidades.ConfiguracionConexiones;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,6 +33,9 @@ public class ConnectionPool {
             System.out.println("❎ Usuario desconectado: " + usuario);
         }
     }
+    public ConfiguracionConexiones getConfig(){
+        return config;
+    }
 
     public int getNumeroConexiones() {
         return conexionesActivas.size();
@@ -38,5 +43,12 @@ public class ConnectionPool {
 
     public boolean estaConectado(String usuario) {
         return conexionesActivas.containsKey(usuario);
+    }
+    public Collection<String> listarUsuariosConectados() {
+        // Devuelve una vista inmutable de los nombres de usuario conectados
+        return Collections.unmodifiableCollection(conexionesActivas.keySet());
+    }
+    public void stop(){
+
     }
 }
