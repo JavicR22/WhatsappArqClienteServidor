@@ -6,6 +6,7 @@ import org.example.client.controladores.CanalController;
 import org.example.client.datos.PoolConexiones;
 import org.example.client.datos.RepositorioLocal;
 import org.example.client.mock.ServidorMock;
+import org.example.client.modelo.Canal;
 import org.example.client.modelo.Usuario;
 import org.example.client.negocio.AuthBusinessLogic;
 import org.example.client.negocio.CanalBusinessLogic;
@@ -13,10 +14,14 @@ import org.example.client.negocio.ServicioNotificaciones;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.List;
 
 /**
- * Ventana principal que coordina el flujo entre Login y Chat.
+ * ClienteUI actualizado:
+ * - Permite conectarse al servidor real o usar modo mock.
+ * - La ventana de conexión permanece visible hasta que se conecte o el usuario cierre la ventana.
  */
 public class ClienteUI extends JFrame {
 
@@ -33,8 +38,18 @@ public class ClienteUI extends JFrame {
     private CanalBusinessLogic canalBusinessLogic;
     private CanalController canalController;
 
-    public ClienteUI() {
-        setTitle("Chat Académico - Cliente");
+    private final String ipServidor;
+    private final int puertoServidor;
+    private final boolean usarModoMock;
+
+    public ClienteUI(String ipServidor, int puertoServidor, GestorComunicacion gestorYaConectado, boolean usarModoMock) {
+        this.ipServidor = ipServidor;
+        this.puertoServidor = puertoServidor;
+        this.usarModoMock = usarModoMock;
+        // Reutilizamos el gestor que ya validó la conexión
+        this.gestorComunicacion = gestorYaConectado;
+
+        setTitle("Chat Académico - Cliente" + (usarModoMock ? " (MODO MOCK)" : " (SERVIDOR REAL)"));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 600);
         setLocationRelativeTo(null);
@@ -64,7 +79,6 @@ public class ClienteUI extends JFrame {
                 return;
             }
 
-            // Autenticar con el servidor
             boolean autenticado = authController.autenticar(correo, contrasena);
 
             if (autenticado) {
@@ -78,6 +92,9 @@ public class ClienteUI extends JFrame {
         });
     }
 
+    /**
+     * Inicializa componentes del cliente. Se asume que gestorComunicacion ya está conectado.
+     */
     private void inicializarComponentes() {
         try {
             PoolConexiones poolConexiones = new PoolConexiones(
@@ -85,40 +102,23 @@ public class ClienteUI extends JFrame {
                     5
             );
 
-            // Inicializar repositorio local con el pool
             repositorioLocal = new RepositorioLocal(poolConexiones);
-
             repositorioLocal.inicializarTablas();
 
-            // Inicializar gestor de comunicación
-            gestorComunicacion = new GestorComunicacion();
-<<<<<<< HEAD
-
-// Conectar al servidor real: desactivar mock y conectar al host/puerto reales
-            gestorComunicacion.activarModoMock(false); // <- cambiar a false para usar servidor real
-            boolean conectado = gestorComunicacion.conectar("10.1.21.85", 5000);
-            if (!conectado) {
-                JOptionPane.showMessageDialog(this,
-                        "No se pudo conectar al servidor real. Verifica IP/puerto.",
-                        "Error de conexión",
-                        JOptionPane.ERROR_MESSAGE);
-                // Puedes decidir si volver a modo mock por seguridad o salir
-                // gestorComunicacion.activarModoMock(true);
+            // Si gestorComunicacion no fue pasado, crear uno (defensivo) y conectar
+            if (gestorComunicacion == null) {
+                gestorComunicacion = new GestorComunicacion();
+                gestorComunicacion.activarModoMock(usarModoMock);
+                boolean conectado = gestorComunicacion.conectar(ipServidor, puertoServidor);
+                if (!conectado) {
+                    throw new RuntimeException("No se pudo conectar al servidor desde inicializarComponentes.");
+                }
             }
 
-            gestorComunicacion.activarModoMock(true);
-
-
-
-            // Inicializar servicio de notificaciones
             servicioNotificaciones = new ServicioNotificaciones();
-
-            // Inicializar lógica de negocio de autenticación
             authBusinessLogic = new AuthBusinessLogic(gestorComunicacion);
-
             authController = new AuthController(authBusinessLogic);
 
-            // Inicializar lógica de negocio de canales
             canalBusinessLogic = new CanalBusinessLogic(
                     gestorComunicacion,
                     repositorioLocal,
@@ -126,7 +126,6 @@ public class ClienteUI extends JFrame {
                     servicioNotificaciones
             );
 
-            // Inicializar controlador de canales
             canalController = new CanalController(canalBusinessLogic);
 
             System.out.println("✅ Componentes inicializados correctamente");
@@ -144,21 +143,184 @@ public class ClienteUI extends JFrame {
     public void mostrarChat() {
         layout.show(panelPrincipal, "chat");
 
-        chatUI.setChats(ServidorMock.obtenerCanalesPredeterminados());
+        if (usarModoMock) {
+            List<Canal> canalesPredeterminados = ServidorMock.obtenerCanalesPredeterminados();
+
+            List<String> nombresCanales = new java.util.ArrayList<>();
+            for (Canal canal : canalesPredeterminados) {
+                if (canal != null && canal.getNombre() != null) {
+                    nombresCanales.add(canal.getNombre());
+                }
+            }
+
+            chatUI.setChats(nombresCanales);
+
+            List<Usuario> usuarios = ServidorMock.obtenerUsuariosVisibles();
+            chatUI.setUsuarios(usuarios);
+        }
 
         Usuario usuarioActual = authBusinessLogic.obtenerUsuarioActual();
-
-        // Configurar sesión
         chatUI.configurarSesion(usuarioActual, gestorComunicacion);
-
         chatUI.configurarControladorCanales(canalController, repositorioLocal);
-
-        // Obtener usuarios visibles
-        List<Usuario> usuarios = ServidorMock.obtenerUsuariosVisibles();
-        chatUI.setUsuarios(usuarios);
     }
 
+    /**
+     * Diálogo modal para pedir IP y puerto. Intenta la conexión al servidor antes de cerrar.
+     * Si la conexión falla, permanece visible (permite reintento).
+     */
+    public static class VentanaConexion extends JDialog {
+        private final JTextField campoIp;
+        private final JTextField campoPuerto;
+        private final JCheckBox checkModoMock;
+        private final JButton botonConectar;
+        private final JButton botonCancelar;
+        private GestorComunicacion gestorConectado = null;
+        private boolean usarModoMock = false;
+
+        public VentanaConexion(Frame parent, String ipDefault, int puertoDefault) {
+            super(parent, "Conexión al Servidor", true);
+            setLayout(new GridBagLayout());
+            setSize(400, 220);
+            setResizable(false);
+            setLocationRelativeTo(parent);
+
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(8, 8, 8, 8);
+            c.gridx = 0; c.gridy = 0; c.anchor = GridBagConstraints.WEST;
+
+            add(new JLabel("Dirección IP:"), c);
+            c.gridx = 1;
+            campoIp = new JTextField(15);
+            campoIp.setText(ipDefault == null ? "127.0.0.1" : ipDefault);
+            add(campoIp, c);
+
+            c.gridx = 0; c.gridy = 1;
+            add(new JLabel("Puerto:"), c);
+            c.gridx = 1;
+            campoPuerto = new JTextField(15);
+            campoPuerto.setText(String.valueOf(puertoDefault <= 0 ? 8080 : puertoDefault));
+            add(campoPuerto, c);
+
+            c.gridx = 0; c.gridy = 2; c.gridwidth = 2;
+            checkModoMock = new JCheckBox("Usar servidor simulado (Mock)");
+            checkModoMock.setSelected(false);
+            add(checkModoMock, c);
+
+            botonConectar = new JButton("Conectar");
+            botonCancelar = new JButton("Cancelar");
+
+            JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            botones.add(botonConectar);
+            botones.add(botonCancelar);
+
+            c.gridx = 0; c.gridy = 3; c.gridwidth = 2;
+            add(botones, c);
+
+            // Intento de conexión cuando el usuario presiona Conectar
+            botonConectar.addActionListener(e -> {
+                usarModoMock = checkModoMock.isSelected();
+
+                String ip = campoIp.getText().trim();
+                String puertoTxt = campoPuerto.getText().trim();
+                if (ip.isEmpty() || puertoTxt.isEmpty()) {
+                    JOptionPane.showMessageDialog(this,
+                            "Debe ingresar una IP y un puerto válidos",
+                            "Datos incompletos",
+                            JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                int puerto;
+                try {
+                    puerto = Integer.parseInt(puertoTxt);
+                    if (puerto < 0 || puerto > 65535) throw new NumberFormatException();
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this,
+                            "Puerto inválido. Debe ser un número entre 0 y 65535.",
+                            "Puerto inválido",
+                            JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                GestorComunicacion gestorTemp = new GestorComunicacion();
+                gestorTemp.activarModoMock(usarModoMock);
+                boolean conectado = gestorTemp.conectar(ip, puerto);
+
+                if (conectado) {
+                    // Éxito: guardamos el gestor y cerramos el diálogo
+                    this.gestorConectado = gestorTemp;
+                    String modo = usarModoMock ? "MOCK" : "REAL";
+                    JOptionPane.showMessageDialog(this,
+                            "Conectado exitosamente al servidor (" + modo + ")",
+                            "Conexión exitosa",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    setVisible(false);
+                } else {
+                    // Falló la conexión: mostramos error y dejamos el diálogo abierto para reintento
+                    JOptionPane.showMessageDialog(this,
+                            "No se pudo conectar al servidor en " + ip + ":" + puerto + "\nVerifique IP/puerto y reintente.",
+                            "Error de conexión",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            });
+
+            botonCancelar.addActionListener(e -> {
+                this.gestorConectado = null;
+                setVisible(false);
+            });
+
+            addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    gestorConectado = null;
+                    setVisible(false);
+                }
+            });
+        }
+
+        public GestorComunicacion getGestorConectado() {
+            return gestorConectado;
+        }
+
+        public String getIp() {
+            return campoIp.getText().trim();
+        }
+
+        public int getPuerto() {
+            try {
+                return Integer.parseInt(campoPuerto.getText().trim());
+            } catch (NumberFormatException e) {
+                return -1;
+            }
+        }
+
+        public boolean isUsarModoMock() {
+            return usarModoMock;
+        }
+    }
+
+    /**
+     * Punto de entrada: muestra el diálogo de conexión y solo si se logra conectar
+     * crea la instancia única de ClienteUI.
+     */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new ClienteUI().setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            VentanaConexion dialogo = new VentanaConexion(null, "127.0.0.1", 8080);
+            dialogo.setVisible(true);
+
+            GestorComunicacion gestorConectado = dialogo.getGestorConectado();
+            if (gestorConectado == null) {
+                System.out.println("❌ Conexión cancelada o no establecida. Saliendo.");
+                System.exit(0);
+                return;
+            }
+
+            String ip = dialogo.getIp();
+            int puerto = dialogo.getPuerto();
+            boolean usarModoMock = dialogo.isUsarModoMock();
+
+            ClienteUI cliente = new ClienteUI(ip, puerto, gestorConectado, usarModoMock);
+            cliente.setVisible(true);
+        });
     }
 }

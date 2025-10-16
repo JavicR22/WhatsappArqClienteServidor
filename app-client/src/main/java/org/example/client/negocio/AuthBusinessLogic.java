@@ -4,6 +4,9 @@ import org.example.client.comunicacion.GestorComunicacion;
 import org.example.client.modelo.*;
 
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * CAPA DE LÓGICA DE NEGOCIO
@@ -35,22 +38,49 @@ public class AuthBusinessLogic {
                     contrasena
             );
 
+            final CountDownLatch latch = new CountDownLatch(1);
+            final AtomicBoolean autenticado = new AtomicBoolean(false);
+            final String[] respuestaServidor = new String[1];
+
+            gestorComunicacion.setMensajeListener(mensaje -> {
+                System.out.println("[v0] AuthBusinessLogic recibió: " + mensaje);
+                respuestaServidor[0] = mensaje;
+
+                // Procesar respuesta de autenticación
+                if (mensaje.startsWith("USUARIOS_CONECTADOS|") || mensaje.startsWith("LOGIN")) {
+                    if (mensaje.startsWith("LOGIN")) {
+                        // El servidor está pidiendo credenciales, no hacer nada aquí
+                        return;
+                    }
+
+                    boolean resultado = gestorComunicacion.procesarRespuestaAutenticacion(mensaje, correo);
+                    autenticado.set(resultado);
+                    latch.countDown();
+                }
+            });
+
             // Enviar al servidor
             gestorComunicacion.enviarMensaje(mensajeAuth);
 
-            // Esperar respuesta
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
+            // Esperar respuesta (máximo 10 segundos)
+            boolean recibido = latch.await(10, TimeUnit.SECONDS);
 
-            if (respuesta instanceof MensajeRespuesta mr) {
-                if (mr.isExito()) {
-                    usuario.setId(mr.getUsuarioId());
-                    usuario.setNombre("Tú");
+            if (!recibido) {
+                System.err.println("❌ Timeout esperando respuesta de autenticación");
+                return false;
+            }
+
+            if (autenticado.get()) {
+                // Esperar respuesta del gestor
+                Mensaje respuesta = gestorComunicacion.recibirMensaje();
+
+                if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
+                    usuario.setId(correo);
+                    usuario.setNombre(correo);
                     usuario.setRol("Estudiante");
                     this.usuarioActual = usuario;
                     System.out.println("✅ Usuario autenticado: " + correo);
                     return true;
-                } else {
-                    System.err.println("❌ Autenticación fallida: " + mr.getMensaje());
                 }
             }
 
@@ -58,6 +88,7 @@ public class AuthBusinessLogic {
 
         } catch (Exception e) {
             System.err.println("Error en lógica de autenticación: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
