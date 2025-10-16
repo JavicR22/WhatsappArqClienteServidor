@@ -30,7 +30,8 @@ public class ChatUI extends JPanel {
     private JList<String> listaCanales;
     private JList<String> listaUsuarios;
     private JPanel panelCentral;
-    private JTextArea taMensajes;
+    private JList<Mensaje> listaMensajes;
+    private DefaultListModel<Mensaje> modeloMensajes;
     private JTextField tfMensaje;
     private JButton btnEnviar;
     private JButton btnAudio;
@@ -213,14 +214,22 @@ public class ChatUI extends JPanel {
         headerPanel.add(lblTitulo, BorderLayout.CENTER);
         chatPanel.add(headerPanel, BorderLayout.NORTH);
 
-        taMensajes = new JTextArea();
-        taMensajes.setEditable(false);
-        taMensajes.setLineWrap(true);
-        taMensajes.setWrapStyleWord(true);
+        modeloMensajes = new DefaultListModel<>();
+        listaMensajes = new JList<>(modeloMensajes);
+        listaMensajes.setCellRenderer(new ListCellRenderer<Mensaje>() {
+            @Override
+            public Component getListCellRendererComponent(JList<? extends Mensaje> list,
+                                                          Mensaje value, int index, boolean isSelected, boolean cellHasFocus) {
+                return new MensajeCelda(value, usuarioActual);
+            }
+        });
+        listaMensajes.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         cargarHistorialMensajes(destino);
 
-        chatPanel.add(new JScrollPane(taMensajes), BorderLayout.CENTER);
+        JScrollPane scrollMensajes = new JScrollPane(listaMensajes);
+        scrollMensajes.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        chatPanel.add(scrollMensajes, BorderLayout.CENTER);
 
         JPanel inferior = new JPanel(new BorderLayout(5, 5));
         tfMensaje = new JTextField();
@@ -256,7 +265,6 @@ public class ChatUI extends JPanel {
 
     private void cargarHistorialMensajes(Usuario destino) {
         if (repositorioLocal == null || usuarioActual == null) {
-            taMensajes.append("⚠️ No se puede cargar el historial de mensajes\n\n");
             return;
         }
 
@@ -266,22 +274,24 @@ public class ChatUI extends JPanel {
                     destino.getCorreo()
             );
 
+            modeloMensajes.clear();
+
             if (mensajes.isEmpty()) {
-                taMensajes.append("📭 No hay mensajes previos con este usuario\n\n");
+                // Optionally show empty state
             } else {
-                taMensajes.append("📜 Historial de mensajes:\n");
-                taMensajes.append("─────────────────────────────\n");
                 for (MensajeTexto msg : mensajes) {
-                    String remitente = msg.getRemitente().getCorreo();
-                    boolean esMio = remitente.equals(usuarioActual.getCorreo());
-                    String prefijo = esMio ? "Tú" : destino.getNombre();
-                    taMensajes.append(prefijo + ": " + msg.getContenido() + "\n");
+                    modeloMensajes.addElement(msg);
                 }
-                taMensajes.append("─────────────────────────────\n\n");
             }
+
+            // Auto-scroll to bottom
+            SwingUtilities.invokeLater(() -> {
+                if (modeloMensajes.getSize() > 0) {
+                    listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
+                }
+            });
         } catch (Exception e) {
             System.err.println("Error cargando historial: " + e.getMessage());
-            taMensajes.append("⚠️ Error al cargar historial de mensajes\n\n");
         }
     }
 
@@ -308,12 +318,27 @@ public class ChatUI extends JPanel {
         headerPanel.add(lblTitulo, BorderLayout.CENTER);
         chatPanel.add(headerPanel, BorderLayout.NORTH);
 
-        taMensajes = new JTextArea();
-        taMensajes.setEditable(false);
-        taMensajes.setLineWrap(true);
-        taMensajes.append("Bienvenido al canal: " + canal.getNombre() + "\n");
-        taMensajes.append("Miembros: " + String.join(", ", canal.getMiembros()) + "\n\n");
-        chatPanel.add(new JScrollPane(taMensajes), BorderLayout.CENTER);
+        modeloMensajes = new DefaultListModel<>();
+        listaMensajes = new JList<>(modeloMensajes);
+        listaMensajes.setCellRenderer(new ListCellRenderer<Mensaje>() {
+            @Override
+            public Component getListCellRendererComponent(JList<? extends Mensaje> list,
+                                                          Mensaje value, int index, boolean isSelected, boolean cellHasFocus) {
+                return new MensajeCelda(value, usuarioActual);
+            }
+        });
+        listaMensajes.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        MensajeTexto bienvenida = new MensajeTexto(
+                java.util.UUID.randomUUID().toString(),
+                new Usuario("SYSTEM", "Sistema", "sistema@chat.com", "", "SYSTEM"),
+                "Bienvenido al canal: " + canal.getNombre() + "\nMiembros: " + String.join(", ", canal.getMiembros())
+        );
+        modeloMensajes.addElement(bienvenida);
+
+        JScrollPane scrollMensajes = new JScrollPane(listaMensajes);
+        scrollMensajes.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        chatPanel.add(scrollMensajes, BorderLayout.CENTER);
 
         JPanel inferior = new JPanel(new BorderLayout(5, 5));
         tfMensaje = new JTextField();
@@ -359,12 +384,21 @@ public class ChatUI extends JPanel {
                 );
             }
 
-            taMensajes.append("Tú: " + texto + "\n");
+            modeloMensajes.addElement(mensaje);
+
+            // Auto-scroll to bottom
+            SwingUtilities.invokeLater(() -> {
+                listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
+            });
+
             tfMensaje.setText("");
 
         } catch (Exception ex) {
             System.err.println("Error enviando mensaje: " + ex.getMessage());
-            taMensajes.append("❌ Error enviando mensaje: " + ex.getMessage() + "\n");
+            JOptionPane.showMessageDialog(this,
+                    "Error enviando mensaje: " + ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -382,18 +416,27 @@ public class ChatUI extends JPanel {
             gestorComunicacion.enviarMensaje(mensaje);
             Mensaje respuesta = gestorComunicacion.recibirMensaje();
 
-            taMensajes.append("[" + usuarioActual.getNombre() + "]: " + texto + "\n");
+            modeloMensajes.addElement(mensaje);
 
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                // Mensaje enviado exitosamente al canal
-            } else {
-                taMensajes.append("⚠️ Error en el envío\n");
+            // Auto-scroll to bottom
+            SwingUtilities.invokeLater(() -> {
+                listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
+            });
+
+            if (respuesta instanceof MensajeRespuesta mr && !mr.isExito()) {
+                JOptionPane.showMessageDialog(this,
+                        "Error en el envío: " + mr.getMensaje(),
+                        "Error",
+                        JOptionPane.WARNING_MESSAGE);
             }
 
             tfMensaje.setText("");
 
         } catch (Exception ex) {
-            taMensajes.append("❌ Error enviando mensaje: " + ex.getMessage() + "\n");
+            JOptionPane.showMessageDialog(this,
+                    "Error enviando mensaje: " + ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -701,7 +744,18 @@ public class ChatUI extends JPanel {
 
                 // Display message if chat is open with this user
                 if (usuarioDestino != null && usuarioDestino.getCorreo().equals(emisor)) {
-                    taMensajes.append(usuarioDestino.getNombre() + ": " + contenido + "\n");
+                    MensajeTextoPrivado mensajeEntrante = new MensajeTextoPrivado(
+                            java.util.UUID.randomUUID().toString(),
+                            usuarioDestino,
+                            usuarioActual,
+                            contenido
+                    );
+                    modeloMensajes.addElement(mensajeEntrante);
+
+                    // Auto-scroll to bottom
+                    SwingUtilities.invokeLater(() -> {
+                        listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
+                    });
                 } else {
                     // Show notification or update chat list
                     System.out.println("[v0] Nuevo mensaje de " + emisor + " (chat no abierto)");

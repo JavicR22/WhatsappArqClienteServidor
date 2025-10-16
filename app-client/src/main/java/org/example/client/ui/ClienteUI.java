@@ -176,6 +176,24 @@ public class ClienteUI extends JFrame {
         chatUI.setUsuariosConectados(conectados);
 
         chatUI.configurarControladorCanales(canalController, repositorioLocal);
+
+        gestorComunicacion.setMensajeListener(mensaje -> {
+            if (mensaje.startsWith("USUARIOS_CONECTADOS|")) {
+                // Actualizar la lista de usuarios en el EDT de Swing
+                SwingUtilities.invokeLater(() -> {
+                    List<UsuarioConectado> usuariosActualizados = authBusinessLogic.obtenerUsuariosConectados();
+                    List<Usuario> listaActualizada = new ArrayList<>();
+                    for (UsuarioConectado uc : usuariosActualizados) {
+                        Usuario u = new Usuario(uc.getUsername(), uc.getUsername(), uc.getUsername(), "", "");
+                        u.setFotoBase64(uc.getFotoBase64());
+                        listaActualizada.add(u);
+                    }
+                    chatUI.setUsuarios(listaActualizada);
+                    chatUI.setUsuariosConectados(usuariosActualizados);
+                    System.out.println("[v0] Lista de usuarios actualizada en la UI: " + usuariosActualizados.size() + " usuarios");
+                });
+            }
+        });
     }
 
     /**
