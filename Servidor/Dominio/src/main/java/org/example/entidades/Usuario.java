@@ -16,6 +16,10 @@ public class Usuario {
         this.username=username;
     }
 
+    public Usuario(String usuario) {
+        this.username=usuario;
+    }
+
 
     public String getUsername() {
         return username;

@@ -9,5 +9,7 @@ public interface UsuarioService {
     void registrarUsuario(Usuario usuario);
     Optional<Usuario> iniciarSesion(String username, String password);
     List<Usuario> listarUsuarios();
+    Usuario buscarPorUsername(String username);
+
     void eliminarUsuario(String username);
 }

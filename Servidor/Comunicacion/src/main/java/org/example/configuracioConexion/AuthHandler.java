@@ -1,9 +1,10 @@
 package org.example.configuracioConexion;
 
+import org.example.objectPool.ConnectionPool;
 import org.example.FileBase64Encoder;
 import org.example.entidades.Usuario;
-import org.example.objectPool.ConnectionPool;
-import org.example.servicio.impl.UsuarioServiceImpl;
+import org.example.servicio.MensajeriaService;
+import org.example.servicio.UsuarioService;
 
 import java.io.*;
 import java.net.Socket;
@@ -13,26 +14,28 @@ public class AuthHandler implements Runnable {
 
     private final Socket socket;
     private final ConnectionPool pool;
-    private final UsuarioServiceImpl usuarioService;
+    private final UsuarioService usuarioService;
+    private final MensajeriaService mensajeriaService;
 
-    public AuthHandler(Socket socket, ConnectionPool pool, UsuarioServiceImpl usuarioService) {
+    public AuthHandler(Socket socket, ConnectionPool pool, UsuarioService usuarioService,
+                       MensajeriaService mensajeriaService) {
         this.socket = socket;
         this.pool = pool;
         this.usuarioService = usuarioService;
+        this.mensajeriaService=mensajeriaService;
     }
 
     @Override
     public void run() {
-        BufferedReader input = null; // ❌ Declarar fuera del try-catch para evitar cierre automático
+        BufferedReader input = null;
         PrintWriter output = null;
 
-        try { // ❌ Usar try simple
-
+        try {
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
 
             // 1️⃣ Solicitar credenciales
-            output.println("LOGIN"); // protocolo simple
+            output.println("LOGIN");
 
             // Cliente envía: username|password
             String credenciales = input.readLine();
@@ -43,55 +46,51 @@ public class AuthHandler implements Runnable {
             }
 
             String[] partes = credenciales.split("\\|", 2);
-            String username = partes[0].trim();
-            String password = partes[1].trim();
-            String ipCliente = socket.getInetAddress().getHostAddress();
+            String username = partes[0];
+            String password = partes[1];
 
-            // 2️⃣ Validar usuario en servicio
-            Usuario usuario = usuarioService.autenticarConIP(username, password, ipCliente);
-            if (usuario==null) {
-                output.println("ERR:Credenciales o IP incorrectas");
+            // 2️⃣ Autenticación
+            Optional<Usuario> usuarioOpt = usuarioService.iniciarSesion(username, password);
+
+            if (usuarioOpt.isEmpty()) {
+                output.println("ERR:Credenciales inválidas");
                 socket.close();
                 return;
             }
 
-
-
-            // 3️⃣ Agregar al pool
+            // 3️⃣ Crear conexión
             Connection conexion = new Connection(socket, username);
-            boolean aceptado = pool.agregarConexion(username, conexion);
 
+            // 4️⃣ Registrar en el Pool
+            boolean aceptado = pool.agregarConexion(username, conexion);
             if (!aceptado) {
                 output.println("ERR:Servidor lleno o usuario ya conectado");
                 socket.close();
                 return;
             }
 
+            // 5️⃣ Notificar éxito
             output.println("OK:Bienvenido " + username);
-            String rutaFoto = usuario.getRutaFoto(); // Asumiendo que esta entidad viene del servicio
+
+            // 6️⃣ Enviar foto (si existe)
+            Usuario usuario = usuarioOpt.get();
+            String rutaFoto = usuario.getRutaFoto();
             String fotoBase64 = FileBase64Encoder.encodeFileToBase64(rutaFoto);
 
             if (fotoBase64 != null) {
-                // Definimos un protocolo simple, ej: FOTO_AVATAR: <Base64String>
                 output.println("FOTO_AVATAR:" + fotoBase64);
             } else {
-                // Si no hay foto, envía un comando para que el cliente use el avatar por defecto
                 output.println("FOTO_AVATAR:DEFAULT");
             }
 
-            // 💡 Transferencia de control: El socket se entrega abierto a ClientHandler
-            new Thread(new ClientHandler(pool, conexion)).start();
+            // 7️⃣ Entregar control a ClientHandler
+            new Thread(new ClientHandler(pool, conexion, mensajeriaService)).start();
 
         } catch (IOException e) {
             System.err.println("Error en autenticación: " + e.getMessage());
-            // Cerrar el socket si el fallo ocurre antes de la transferencia
             try {
-                if (socket != null && !socket.isClosed()) {
-                    socket.close();
-                }
-            } catch (IOException closeE) {
-                // Ignorar error de cierre
-            }
+                socket.close();
+            } catch (IOException ignored) {}
         }
     }
 }

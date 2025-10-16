@@ -5,6 +5,8 @@
     <file url="file://$PROJECT_DIR$/Base64Encoder/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Comunicacion/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Comunicacion/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/Contratos/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/Contratos/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Dominio/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Dominio/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/InfraestructuraDatos/src/main/java" charset="UTF-8" />
@@ -13,6 +15,8 @@
     <file url="file://$PROJECT_DIR$/Intermediarios/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/LogicaNegocio/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/LogicaNegocio/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ObjectPool/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/ObjectPool/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Presentacion/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Presentacion/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app-client/src/main/java" charset="UTF-8" />

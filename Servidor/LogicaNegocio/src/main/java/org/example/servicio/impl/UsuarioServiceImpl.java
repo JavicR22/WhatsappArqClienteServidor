@@ -21,6 +21,8 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+
+
     public Optional<Usuario> iniciarSesion(String username, String password) {
         Optional<Usuario> usuario = usuarioRepositorio.buscarPorUsername(username);
         if (usuario.isEmpty()) {
@@ -34,7 +36,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         System.out.println("✅ Usuario autenticado: " + username);
         return usuario;
     }
-
+    @Override
     public Usuario buscarPorUsername(String username){
         Optional<Usuario> usuarioOpt = usuarioRepositorio.buscarPorUsername(username);
         if (usuarioOpt.isEmpty()) {
