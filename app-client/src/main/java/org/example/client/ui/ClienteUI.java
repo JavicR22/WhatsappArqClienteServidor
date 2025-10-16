@@ -92,6 +92,7 @@ public class ClienteUI extends JFrame {
 
             // Inicializar gestor de comunicación
             gestorComunicacion = new GestorComunicacion();
+<<<<<<< HEAD
 
 // Conectar al servidor real: desactivar mock y conectar al host/puerto reales
             gestorComunicacion.activarModoMock(false); // <- cambiar a false para usar servidor real
@@ -104,6 +105,10 @@ public class ClienteUI extends JFrame {
                 // Puedes decidir si volver a modo mock por seguridad o salir
                 // gestorComunicacion.activarModoMock(true);
             }
+
+            gestorComunicacion.activarModoMock(true);
+
+
 
             // Inicializar servicio de notificaciones
             servicioNotificaciones = new ServicioNotificaciones();

@@ -1,5 +1,6 @@
 package org.example.client.comunicacion;
 
+
 import org.example.client.modelo.*;
 import org.example.client.mock.ServidorMock;
 import org.example.client.protocolo.AnalizadorProtocolo;
@@ -19,12 +20,31 @@ import java.util.UUID;
  * Ampliaciones futuras:
  * - Mapear más tipos de Mensaje a formatos de texto/JSON según especifique el servidor.
  * - Implementar listener / hilo de lectura continuo para mensajes asíncronos del servidor.
+=======
+import org.example.client.modelo.Mensaje;
+import org.example.client.mock.ServidorMock;
+import org.example.client.protocolo.AnalizadorProtocolo;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+
+/**
+ * CAPA DE COMUNICACIÓN
+ * Controla los servicios del protocolo TCP y gestiona la comunicación con el servidor.
+ * Implementa un patrón de pool de conexiones para optimizar recursos.
+ *
+ * (Modificado para incluir modo Mock de pruebas locales sin servidor real)
+
  */
 public class GestorComunicacion {
 
     private Socket socket;
+<<<<<<< HEAD
     private BufferedWriter writer;
     private BufferedReader reader;
+
     private boolean conectado;
     private boolean modoMock = false; // NUEVO: modo de simulación sin servidor real
     private String usuarioIdConectado = null;
@@ -32,13 +52,18 @@ public class GestorComunicacion {
     // Para compatibilidad con mock existente
     private Mensaje ultimaRespuestaMock = null;
 
+
     public void activarModoMock(boolean activar) {
         this.modoMock = activar;
         System.out.println("🔧 Modo mock: " + (activar ? "ACTIVADO" : "DESACTIVADO"));
     }
 
     /**
+<<<<<<< HEAD
      * Conectar al host/puerto o activar mock.
+=======
+     * Establece conexión TCP con el servidor o inicia modo mock.
+>>>>>>> 2bba48d6b26db3e237ed1931c510c1e16ac7a1af
      */
     public boolean conectar(String host, int puerto) {
         if (modoMock) {
@@ -47,10 +72,19 @@ public class GestorComunicacion {
             return true;
         }
 
+
         try {
             socket = new Socket(host, puerto);
             writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+
+        // 🔻 --- CÓDIGO ORIGINAL (comentado, se reactivará cuando haya servidor real) ---
+        /*
+        try {
+            socket = new Socket(host, puerto);
+            salida = new DataOutputStream(socket.getOutputStream());
+            entrada = new DataInputStream(socket.getInputStream());
+>
             conectado = true;
             System.out.println("✅ Conectado al servidor en " + host + ":" + puerto);
             return true;
@@ -59,6 +93,7 @@ public class GestorComunicacion {
             conectado = false;
             return false;
         }
+<<<<<<< HEAD
     }
 
     /**
@@ -67,6 +102,16 @@ public class GestorComunicacion {
      * Para MensajeTexto: envía una línea simple con prefijo MSG|<destinatario>|<contenido>
      *
      * Lanza IOException si ocurre un problema en modo real.
+=======
+        */
+        // 🔺 --- FIN CÓDIGO ORIGINAL ---
+
+        return false;
+    }
+
+    /**
+     * Envía un mensaje al servidor real o simulado.
+>>>>>>> 2bba48d6b26db3e237ed1931c510c1e16ac7a1af
      */
     public void enviarMensaje(Mensaje mensaje) throws IOException {
         if (!conectado) {
@@ -80,6 +125,7 @@ public class GestorComunicacion {
             ultimaRespuestaMock = respuesta;
             return;
         }
+
 
         // Modo real: traducir tipos básicos (autenticación y texto) al protocolo de texto
         if (mensaje instanceof MensajeAutenticacion ma) {
@@ -172,6 +218,22 @@ public class GestorComunicacion {
      * Recibir mensaje del servidor real o mock.
      * En modo mock devuelve la última respuesta guardada por enviarMensaje(mock).
      * En modo real intenta leer una línea y convertirla en Mensaje (Respuesta o Texto).
+=======
+        // 🔻 --- CÓDIGO ORIGINAL ---
+        /*
+        byte[] datos = AnalizadorProtocolo.serializar(mensaje);
+        salida.writeInt(datos.length);
+        salida.write(datos);
+        salida.flush();
+        */
+        // 🔺 --- FIN CÓDIGO ORIGINAL ---
+    
+
+    // NUEVO: para almacenar la respuesta simulada del mock
+    private Mensaje ultimaRespuestaMock = null;
+
+    /**
+     * Recibe un mensaje del servidor real o mock.
      */
     public Mensaje recibirMensaje() throws IOException {
         if (!conectado) {
@@ -179,10 +241,12 @@ public class GestorComunicacion {
         }
 
         if (modoMock) {
+
             Mensaje respuesta = ultimaRespuestaMock;
             ultimaRespuestaMock = null;
             return respuesta;
         }
+
 
         // Modo real: si hay una respuesta previa (ultimaRespuestaMock) devuélvela primero para compatibilidad
         if (ultimaRespuestaMock != null) {
@@ -219,6 +283,20 @@ public class GestorComunicacion {
 
     /**
      * Cierra la conexión o termina el mock.
+        // 🔻 --- CÓDIGO ORIGINAL ---
+        /*
+        int longitud = entrada.readInt();
+        byte[] datos = new byte[longitud];
+        entrada.readFully(datos);
+        return AnalizadorProtocolo.deserializar(datos);
+        */
+        // 🔺 --- FIN CÓDIGO ORIGINAL ---
+
+        return null;
+    }
+
+    /**
+     * Cierra la conexión o termina el modo mock.
      */
     public void cerrarConexion() {
         if (modoMock) {
@@ -227,29 +305,18 @@ public class GestorComunicacion {
             return;
         }
 
+
         try {
             conectado = false;
             if (writer != null) writer.close();
             if (reader != null) reader.close();
-            if (socket != null) socket.close();
-            System.out.println("👋 Conexión cerrada correctamente");
-        } catch (IOException e) {
-            System.err.println("Error al cerrar conexión: " + e.getMessage());
-        }
-    }
 
-    /**
-     * Verifica si hay conexión activa.
-     */
-    public boolean estaConectado() {
-        return conectado;
-    }
+        }}
+            /**
+             * Verifica si hay conexión activa.
+             */
+            public boolean estaConectado () {
+                return conectado;
+            }
+       }
 
-    /**
-     * (Opcional) obtener el id de usuario conectado si se obtiene del servidor.
-     */
-    public String getUsuarioIdConectado() {
-        return usuarioIdConectado;
-    }
-
-}
