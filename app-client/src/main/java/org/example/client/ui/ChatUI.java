@@ -10,7 +10,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.util.Base64;
 import java.util.List;
+import javax.imageio.ImageIO;
+import java.io.ByteArrayInputStream;
 
 /**
  * Chat principal al estilo WhatsApp Desktop.
@@ -33,6 +37,7 @@ public class ChatUI extends JPanel {
     private JButton btnCrearCanal;
     private JButton btnInvitarUsuarios;
     private JButton btnVerInvitaciones;
+    private JPanel panelUsuarioActual;
 
     // ⚙️ Datos
     private List<Usuario> usuariosVisibles;
@@ -57,6 +62,14 @@ public class ChatUI extends JPanel {
         JPanel lateral = new JPanel(new BorderLayout());
         lateral.setPreferredSize(new Dimension(250, 0));
 
+        panelUsuarioActual = new JPanel(new BorderLayout(5, 5));
+        panelUsuarioActual.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        panelUsuarioActual.setBackground(new Color(240, 240, 240));
+        lateral.add(panelUsuarioActual, BorderLayout.NORTH);
+
         JTabbedPane pestañas = new JTabbedPane();
 
         // 🟢 TAB de chats privados
@@ -76,6 +89,51 @@ public class ChatUI extends JPanel {
 
         // 🟢 TAB de usuarios (para "todos los usuarios son visibles")
         listaUsuarios = new JList<>(modeloUsuarios);
+        listaUsuarios.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(
+                    JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+
+                JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                label.setOpaque(true);
+                label.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+                // Buscar el usuario correspondiente
+                if (usuariosVisibles != null && index < usuariosVisibles.size()) {
+                    Usuario u = usuariosVisibles.get(index);
+
+                    // Decodificar foto Base64 (si existe)
+                    if (u.getFotoBase64() != null && !u.getFotoBase64().isEmpty() && !u.getFotoBase64().equals("DEFAULT")) {
+                        try {
+                            byte[] bytes = java.util.Base64.getDecoder().decode(u.getFotoBase64());
+                            java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(bytes);
+                            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bis);
+                            if (img != null) {
+                                Image scaled = img.getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+                                label.setIcon(new ImageIcon(scaled));
+                            } else {
+                                label.setIcon(new ImageIcon(new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB)));
+                            }
+                        } catch (Exception ex) {
+                            label.setIcon(new ImageIcon(new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB)));
+                        }
+                    } else {
+                        // Foto por defecto (emoji 👤)
+                        label.setIcon(new ImageIcon(crearIconoTexto("👤", 32, 32)));
+                    }
+
+                    label.setText(u.getNombre() != null ? u.getNombre() : u.getCorreo());
+                }
+
+                if (isSelected) {
+                    label.setBackground(new Color(0xD0E8FF));
+                }
+
+                return label;
+            }
+        });
+
         JScrollPane scrollUsuarios = new JScrollPane(listaUsuarios);
         pestañas.addTab("Usuarios", scrollUsuarios);
 
@@ -175,6 +233,22 @@ public class ChatUI extends JPanel {
         panelCentral.revalidate();
         panelCentral.repaint();
     }
+
+    private Image crearIconoTexto(String texto, int ancho, int alto) {
+        BufferedImage img = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = img.createGraphics();
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, ancho, alto);
+        g2.setColor(Color.BLACK);
+        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
+        FontMetrics fm = g2.getFontMetrics();
+        int x = (ancho - fm.stringWidth(texto)) / 2;
+        int y = (alto - fm.getHeight()) / 2 + fm.getAscent();
+        g2.drawString(texto, x, y);
+        g2.dispose();
+        return img;
+    }
+
 
     /** -------------------------------
      * MOSTRAR CHAT EN UN CANAL
@@ -382,6 +456,20 @@ public class ChatUI extends JPanel {
         panelCentral.repaint();
     }
 
+    public void setUsuariosConectados(List<UsuarioConectado> lista) {
+        modeloUsuarios.clear();
+        if (lista == null || lista.isEmpty()) {
+            modeloUsuarios.addElement("Nadie en línea");
+            return;
+        }
+
+        for (UsuarioConectado u : lista) {
+            String texto = u.getUsername();
+            modeloUsuarios.addElement(texto);
+        }
+    }
+
+
     private void mostrarPanelInvitarUsuarios() {
         if (canalController == null || canales == null || canales.isEmpty()) {
             JOptionPane.showMessageDialog(this,
@@ -556,6 +644,72 @@ public class ChatUI extends JPanel {
     public void configurarSesion(Usuario usuarioActual, GestorComunicacion gestor) {
         this.usuarioActual = usuarioActual;
         this.gestorComunicacion = gestor;
+
+        actualizarPanelUsuarioActual();
+    }
+
+    private void actualizarPanelUsuarioActual() {
+        if (usuarioActual == null || panelUsuarioActual == null) return;
+
+        panelUsuarioActual.removeAll();
+
+        // Crear panel con foto y nombre
+        JPanel infoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        infoPanel.setOpaque(false);
+
+        // Cargar y mostrar foto si existe
+        if (usuarioActual.getFotoBase64() != null && !usuarioActual.getFotoBase64().isEmpty()) {
+            try {
+                byte[] imageBytes = Base64.getDecoder().decode(usuarioActual.getFotoBase64());
+                ByteArrayInputStream bis = new ByteArrayInputStream(imageBytes);
+                BufferedImage originalImage = ImageIO.read(bis);
+
+                if (originalImage != null) {
+                    int size = 48;
+                    Image scaledImage = originalImage.getScaledInstance(size, size, Image.SCALE_SMOOTH);
+                    JLabel lblFoto = new JLabel(new ImageIcon(scaledImage));
+                    lblFoto.setPreferredSize(new Dimension(size, size));
+                    lblFoto.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1, true));
+                    infoPanel.add(lblFoto);
+                } else {
+                    JLabel lblFotoDefault = new JLabel("👤");
+                    lblFotoDefault.setFont(new Font("SansSerif", Font.PLAIN, 32));
+                    lblFotoDefault.setPreferredSize(new Dimension(48, 48));
+                    infoPanel.add(lblFotoDefault);
+                }
+            } catch (Exception e) {
+                System.err.println("⚠️ Error al decodificar foto: " + e.getMessage());
+                JLabel lblFotoDefault = new JLabel("👤");
+                lblFotoDefault.setFont(new Font("SansSerif", Font.PLAIN, 32));
+                lblFotoDefault.setPreferredSize(new Dimension(48, 48));
+                infoPanel.add(lblFotoDefault);
+            }
+        } else {
+            JLabel lblFotoDefault = new JLabel("👤");
+            lblFotoDefault.setFont(new Font("SansSerif", Font.PLAIN, 32));
+            lblFotoDefault.setPreferredSize(new Dimension(48, 48));
+            infoPanel.add(lblFotoDefault);
+        }
+
+
+        // Mostrar nombre del usuario
+        JPanel textoPanel = new JPanel(new GridLayout(2, 1, 0, 2));
+        textoPanel.setOpaque(false);
+
+        JLabel lblNombre = new JLabel(usuarioActual.getNombre());
+        lblNombre.setFont(new Font("SansSerif", Font.BOLD, 14));
+        textoPanel.add(lblNombre);
+
+        JLabel lblCorreo = new JLabel(usuarioActual.getCorreo());
+        lblCorreo.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        lblCorreo.setForeground(Color.GRAY);
+        textoPanel.add(lblCorreo);
+
+        infoPanel.add(textoPanel);
+        panelUsuarioActual.add(infoPanel, BorderLayout.CENTER);
+
+        panelUsuarioActual.revalidate();
+        panelUsuarioActual.repaint();
     }
 
     public void configurarControladorCanales(CanalController controller, RepositorioLocal repo) {

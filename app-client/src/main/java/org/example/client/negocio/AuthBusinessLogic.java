@@ -3,6 +3,7 @@ package org.example.client.negocio;
 import org.example.client.comunicacion.GestorComunicacion;
 import org.example.client.modelo.*;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +22,10 @@ public class AuthBusinessLogic {
     public AuthBusinessLogic(GestorComunicacion gestorComunicacion) {
         this.gestorComunicacion = gestorComunicacion;
     }
+    public List<UsuarioConectado> obtenerUsuariosConectados() {
+        return gestorComunicacion.getUsuariosConectados();
+    }
+
 
     /**
      * Lógica de autenticación: conecta al servidor y valida credenciales
@@ -47,9 +52,14 @@ public class AuthBusinessLogic {
                 respuestaServidor[0] = mensaje;
 
                 // Procesar respuesta de autenticación
-                if (mensaje.startsWith("USUARIOS_CONECTADOS|") || mensaje.startsWith("LOGIN")) {
+                if (mensaje.startsWith("USUARIOS_CONECTADOS|") || mensaje.startsWith("LOGIN") || mensaje.startsWith("OK:")) {
                     if (mensaje.startsWith("LOGIN")) {
                         // El servidor está pidiendo credenciales, no hacer nada aquí
+                        return;
+                    }
+
+                    if (mensaje.startsWith("OK:")) {
+                        System.out.println("[v0] Servidor confirmó autenticación");
                         return;
                     }
 
@@ -78,8 +88,28 @@ public class AuthBusinessLogic {
                     usuario.setId(correo);
                     usuario.setNombre(correo);
                     usuario.setRol("Estudiante");
+                    // Intentar obtener la foto (esperar un poco si aún no ha llegado)
+                    String foto = gestorComunicacion.getFotoUsuarioActual();
+                    if (foto == null) {
+                        for (int i = 0; i < 10; i++) {
+                            Thread.sleep(300);
+                            foto = gestorComunicacion.getFotoUsuarioActual();
+                            if (foto != null) break;
+                        }
+                    }
+
+                    if (foto != null && !foto.equals("DEFAULT")) {
+                        usuario.setFotoBase64(foto);
+                        System.out.println("[v0] Foto asignada al usuario autenticado (Base64 length: " + foto.length() + ")");
+                    } else {
+                        System.out.println("[v0] Usuario autenticado sin foto personalizada");
+                    }
+
                     this.usuarioActual = usuario;
                     System.out.println("✅ Usuario autenticado: " + correo);
+                    List<UsuarioConectado> lista = gestorComunicacion.getUsuariosConectados();
+                    System.out.println("[v1] Usuarios conectados tras autenticación: " + lista.size());
+
                     return true;
                 }
             }

@@ -8,6 +8,7 @@ import org.example.client.datos.RepositorioLocal;
 import org.example.client.mock.ServidorMock;
 import org.example.client.modelo.Canal;
 import org.example.client.modelo.Usuario;
+import org.example.client.modelo.UsuarioConectado;
 import org.example.client.negocio.AuthBusinessLogic;
 import org.example.client.negocio.CanalBusinessLogic;
 import org.example.client.negocio.ServicioNotificaciones;
@@ -16,6 +17,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -161,6 +163,17 @@ public class ClienteUI extends JFrame {
 
         Usuario usuarioActual = authBusinessLogic.obtenerUsuarioActual();
         chatUI.configurarSesion(usuarioActual, gestorComunicacion);
+        List<UsuarioConectado> conectados = authBusinessLogic.obtenerUsuariosConectados();
+        List<Usuario> listaUsuarios = new ArrayList<>();
+        for (UsuarioConectado uc : conectados) {
+            Usuario u = new Usuario(uc.getUsername(), uc.getUsername(), uc.getUsername(), "", "");
+            u.setFotoBase64(uc.getFotoBase64());
+            listaUsuarios.add(u);
+        }
+        chatUI.setUsuarios(listaUsuarios);
+
+        chatUI.setUsuariosConectados(conectados);
+
         chatUI.configurarControladorCanales(canalController, repositorioLocal);
     }
 

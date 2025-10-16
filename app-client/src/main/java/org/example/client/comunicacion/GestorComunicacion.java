@@ -6,6 +6,8 @@ import org.example.client.protocolo.AnalizadorProtocolo;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,9 +28,12 @@ public class GestorComunicacion {
     private String usuarioIdConectado = null;
     private Thread hiloEscucha;
     private MensajeListener mensajeListener;
+    private String fotoUsuarioActual = null;
 
     // Para compatibilidad con mock existente
     private Mensaje ultimaRespuestaMock = null;
+    private List<UsuarioConectado> usuariosConectados = new ArrayList<>();
+
 
     public interface MensajeListener {
         void onMensajeRecibido(String mensaje);
@@ -37,6 +42,10 @@ public class GestorComunicacion {
     public void setMensajeListener(MensajeListener listener) {
         this.mensajeListener = listener;
     }
+    public List<UsuarioConectado> getUsuariosConectados() {
+        return new ArrayList<>(usuariosConectados);
+    }
+
 
     public void activarModoMock(boolean activar) {
         this.modoMock = activar;
@@ -78,15 +87,52 @@ public class GestorComunicacion {
                 while (conectado && (linea = reader.readLine()) != null) {
                     final String mensaje = linea;
                     System.out.println("[v0] Mensaje recibido del servidor: " + mensaje);
+                    if (mensaje.startsWith("USUARIOS_CONECTADOS|")) {
+                        String data = mensaje.substring("USUARIOS_CONECTADOS|".length());
+                        usuariosConectados.clear();
+                        String[] pares = data.split(";");
+                        for (String p : pares) {
+                            if (p.isBlank()) continue;
+                            String[] partes = p.split(":");
+                            String username = partes[0];
+                            String foto = (partes.length > 1) ? partes[1] : "DEFAULT";
+                            usuariosConectados.add(new UsuarioConectado(username, foto));
+                        }
+                        System.out.println("[v1] Lista actualizada de usuarios conectados (" + usuariosConectados.size() + ")");
+                        if (mensajeListener != null) {
+                            mensajeListener.onMensajeRecibido(mensaje);
+                        }
+                        continue;
+                    }
+
+                    if (mensaje.startsWith("FOTO_AVATAR:")) {
+                        String foto = mensaje.substring("FOTO_AVATAR:".length());
+                        if (!foto.equals("DEFAULT")) {
+                            fotoUsuarioActual = foto;
+                            System.out.println("[v0] Foto de avatar recibida (Base64 length: " + foto.length() + ")");
+                        } else {
+                            fotoUsuarioActual = null;
+                            System.out.println("[v0] Usuario sin foto personalizada");
+                        }
+                        continue;
+                    }
+
+                    if (mensaje.startsWith("OK:")) {
+                        System.out.println("[v0] Autenticación exitosa: " + mensaje);
+                        // Notificar al listener
+                        if (mensajeListener != null) {
+                            mensajeListener.onMensajeRecibido(mensaje);
+                        }
+                        continue;
+                    }
 
                     // Notificar al listener si existe
                     if (mensajeListener != null) {
                         mensajeListener.onMensajeRecibido(mensaje);
                     }
 
-                    // Guardar como última respuesta para compatibilidad
+                    // formato: MSG|<remitente>|<contenido>
                     if (mensaje.startsWith("MSG|")) {
-                        // formato: MSG|<remitente>|<contenido>
                         String[] partes = mensaje.split("\\|", 3);
                         String remitenteCorreo = partes.length >= 2 ? partes[1] : "";
                         String contenido = partes.length >= 3 ? partes[2] : "";
@@ -207,6 +253,9 @@ public class GestorComunicacion {
 
             // Crear MensajeRespuesta exitoso
             Usuario remitente = new Usuario(username, username, username, "", "");
+            if (fotoUsuarioActual != null) {
+                remitente.setFotoBase64(fotoUsuarioActual);
+            }
             ultimaRespuestaMock = new MensajeRespuesta(
                     UUID.randomUUID().toString(),
                     remitente,
@@ -262,5 +311,9 @@ public class GestorComunicacion {
 
     public BufferedReader getReader() {
         return reader;
+    }
+
+    public String getFotoUsuarioActual() {
+        return fotoUsuarioActual;
     }
 }
