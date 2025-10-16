@@ -29,6 +29,7 @@ public class GestorComunicacion {
     private Thread hiloEscucha;
     private MensajeListener mensajeListener;
     private String fotoUsuarioActual = null;
+    private MensajePrivadoListener mensajePrivadoListener;
 
     // Para compatibilidad con mock existente
     private Mensaje ultimaRespuestaMock = null;
@@ -39,9 +40,18 @@ public class GestorComunicacion {
         void onMensajeRecibido(String mensaje);
     }
 
+    public interface MensajePrivadoListener {
+        void onMensajePrivadoRecibido(String emisor, String contenido);
+    }
+
     public void setMensajeListener(MensajeListener listener) {
         this.mensajeListener = listener;
     }
+
+    public void setMensajePrivadoListener(MensajePrivadoListener listener) {
+        this.mensajePrivadoListener = listener;
+    }
+
     public List<UsuarioConectado> getUsuariosConectados() {
         return new ArrayList<>(usuariosConectados);
     }
@@ -87,6 +97,38 @@ public class GestorComunicacion {
                 while (conectado && (linea = reader.readLine()) != null) {
                     final String mensaje = linea;
                     System.out.println("[v0] Mensaje recibido del servidor: " + mensaje);
+
+                    if (mensaje.startsWith("MSG_TEXT_PRIVADO|")) {
+                        String[] partes = mensaje.split("\\|", 3);
+                        if (partes.length >= 3) {
+                            String emisor = partes[1];
+                            String contenido = partes[2];
+                            System.out.println("[v0] Mensaje privado recibido de " + emisor + ": " + contenido);
+
+                            // Notify listener
+                            if (mensajePrivadoListener != null) {
+                                mensajePrivadoListener.onMensajePrivadoRecibido(emisor, contenido);
+                            }
+                        }
+                        continue;
+                    }
+
+                    if (mensaje.startsWith("MSG_TEXT_CANAL|")) {
+                        String[] partes = mensaje.split("\\|", 4);
+                        if (partes.length >= 4) {
+                            String nombreCanal = partes[1];
+                            String emisor = partes[2];
+                            String contenido = partes[3];
+                            System.out.println("[v0] Mensaje de canal [" + nombreCanal + "] de " + emisor + ": " + contenido);
+
+                            // Notify general listener
+                            if (mensajeListener != null) {
+                                mensajeListener.onMensajeRecibido(mensaje);
+                            }
+                        }
+                        continue;
+                    }
+
                     if (mensaje.startsWith("USUARIOS_CONECTADOS|")) {
                         String data = mensaje.substring("USUARIOS_CONECTADOS|".length());
                         usuariosConectados.clear();
@@ -98,7 +140,7 @@ public class GestorComunicacion {
                             String foto = (partes.length > 1) ? partes[1] : "DEFAULT";
                             usuariosConectados.add(new UsuarioConectado(username, foto));
                         }
-                        System.out.println("[v1] Lista actualizada de usuarios conectados (" + usuariosConectados.size() + ")");
+                        System.out.println("[v0] Lista actualizada de usuarios conectados (" + usuariosConectados.size() + ")");
                         if (mensajeListener != null) {
                             mensajeListener.onMensajeRecibido(mensaje);
                         }
@@ -177,6 +219,16 @@ public class GestorComunicacion {
 
             // 3) Esperar respuesta del servidor (USUARIOS_CONECTADOS|...)
             // La respuesta se procesará en el hilo de escucha
+            return;
+        }
+
+        if (mensaje instanceof MensajeTextoPrivado mtp) {
+            String destinatario = mtp.getReceptorCorreo();
+            String contenido = mtp.getContenido();
+            String protocolo = "PRIVADO|" + destinatario + "|" + contenido;
+            output.println(protocolo);
+            output.flush();
+            System.out.println("[v0] Mensaje privado enviado a " + destinatario + ": " + contenido);
             return;
         }
 

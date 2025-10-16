@@ -55,9 +55,9 @@ public class ChatUI extends JPanel {
         construirPanelCentral();
     }
 
-    /** -------------------------------
-     * PANEL LATERAL (Chats, Canales y Usuarios)
-     * ------------------------------- */
+    /** ------------------------------- */
+    /** PANEL LATERAL (Chats, Canales y Usuarios) */
+    /** ------------------------------- */
     private void construirPanelLateral() {
         JPanel lateral = new JPanel(new BorderLayout());
         lateral.setPreferredSize(new Dimension(250, 0));
@@ -167,9 +167,9 @@ public class ChatUI extends JPanel {
         add(lateral, BorderLayout.WEST);
     }
 
-    /** -------------------------------
-     * PANEL CENTRAL (Área de chat)
-     * ------------------------------- */
+    /** ------------------------------- */
+    /** PANEL CENTRAL (Área de chat) */
+    /** ------------------------------- */
     private void construirPanelCentral() {
         panelCentral = new JPanel(new BorderLayout(5, 5));
         mostrarMensajeBienvenida();
@@ -191,9 +191,9 @@ public class ChatUI extends JPanel {
         panelCentral.repaint();
     }
 
-    /** -------------------------------
-     * MOSTRAR CHAT CON UN USUARIO
-     * ------------------------------- */
+    /** ------------------------------- */
+    /** MOSTRAR CHAT CON UN USUARIO */
+    /** ------------------------------- */
     private void mostrarChatCon(Usuario destino) {
         panelCentral.removeAll();
         this.usuarioDestino = destino;
@@ -216,6 +216,10 @@ public class ChatUI extends JPanel {
         taMensajes = new JTextArea();
         taMensajes.setEditable(false);
         taMensajes.setLineWrap(true);
+        taMensajes.setWrapStyleWord(true);
+
+        cargarHistorialMensajes(destino);
+
         chatPanel.add(new JScrollPane(taMensajes), BorderLayout.CENTER);
 
         JPanel inferior = new JPanel(new BorderLayout(5, 5));
@@ -228,6 +232,7 @@ public class ChatUI extends JPanel {
         chatPanel.add(inferior, BorderLayout.SOUTH);
 
         btnEnviar.addActionListener(e -> enviarMensajePrivado());
+        tfMensaje.addActionListener(e -> enviarMensajePrivado());
 
         panelCentral.add(chatPanel, BorderLayout.CENTER);
         panelCentral.revalidate();
@@ -249,10 +254,40 @@ public class ChatUI extends JPanel {
         return img;
     }
 
+    private void cargarHistorialMensajes(Usuario destino) {
+        if (repositorioLocal == null || usuarioActual == null) {
+            taMensajes.append("⚠️ No se puede cargar el historial de mensajes\n\n");
+            return;
+        }
 
-    /** -------------------------------
-     * MOSTRAR CHAT EN UN CANAL
-     * ------------------------------- */
+        try {
+            List<MensajeTexto> mensajes = repositorioLocal.obtenerMensajesConUsuario(
+                    usuarioActual.getCorreo(),
+                    destino.getCorreo()
+            );
+
+            if (mensajes.isEmpty()) {
+                taMensajes.append("📭 No hay mensajes previos con este usuario\n\n");
+            } else {
+                taMensajes.append("📜 Historial de mensajes:\n");
+                taMensajes.append("─────────────────────────────\n");
+                for (MensajeTexto msg : mensajes) {
+                    String remitente = msg.getRemitente().getCorreo();
+                    boolean esMio = remitente.equals(usuarioActual.getCorreo());
+                    String prefijo = esMio ? "Tú" : destino.getNombre();
+                    taMensajes.append(prefijo + ": " + msg.getContenido() + "\n");
+                }
+                taMensajes.append("─────────────────────────────\n\n");
+            }
+        } catch (Exception e) {
+            System.err.println("Error cargando historial: " + e.getMessage());
+            taMensajes.append("⚠️ Error al cargar historial de mensajes\n\n");
+        }
+    }
+
+    /** ------------------------------- */
+    /** MOSTRAR CHAT EN UN CANAL */
+    /** ------------------------------- */
     private void mostrarChatCanal(Canal canal) {
         panelCentral.removeAll();
         this.canalActual = canal;
@@ -296,34 +331,39 @@ public class ChatUI extends JPanel {
         panelCentral.repaint();
     }
 
-    /** -------------------------------
-     * ENVÍO DE MENSAJES
-     * ------------------------------- */
+    /** ------------------------------- */
+    /** ENVÍO DE MENSAJES */
+    /** ------------------------------- */
     private void enviarMensajePrivado() {
         String texto = tfMensaje.getText().trim();
         if (texto.isEmpty() || usuarioDestino == null) return;
 
         try {
-            MensajeTexto mensaje = new MensajeTexto(
+            MensajeTextoPrivado mensaje = new MensajeTextoPrivado(
                     java.util.UUID.randomUUID().toString(),
                     usuarioActual,
+                    usuarioDestino,
                     texto
             );
 
             gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
 
-            taMensajes.append("Tú: " + texto + "\n");
-
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                taMensajes.append("📩 " + mr.getMensaje() + "\n");
-            } else {
-                taMensajes.append("⚠️ Error en el envío\n");
+            if (repositorioLocal != null) {
+                repositorioLocal.guardarMensaje(
+                        mensaje.getId(),
+                        usuarioActual.getCorreo(),
+                        usuarioDestino.getCorreo(),
+                        null,
+                        texto,
+                        "PRIVADO"
+                );
             }
 
+            taMensajes.append("Tú: " + texto + "\n");
             tfMensaje.setText("");
 
         } catch (Exception ex) {
+            System.err.println("Error enviando mensaje: " + ex.getMessage());
             taMensajes.append("❌ Error enviando mensaje: " + ex.getMessage() + "\n");
         }
     }
@@ -357,9 +397,9 @@ public class ChatUI extends JPanel {
         }
     }
 
-    /** -------------------------------
-     * PANELES DE GESTIÓN DE CANALES (en lugar de diálogos)
-     * ------------------------------- */
+    /** ------------------------------- */
+    /** PANELES DE GESTIÓN DE CANALES (en lugar de diálogos) */
+    /** ------------------------------- */
     private void mostrarPanelCrearCanal() {
         if (canalController == null) {
             JOptionPane.showMessageDialog(this,
@@ -468,7 +508,6 @@ public class ChatUI extends JPanel {
             modeloUsuarios.addElement(texto);
         }
     }
-
 
     private void mostrarPanelInvitarUsuarios() {
         if (canalController == null || canales == null || canales.isEmpty()) {
@@ -618,9 +657,9 @@ public class ChatUI extends JPanel {
         panelCentral.repaint();
     }
 
-    /** -------------------------------
-     * MÉTODOS DE ACTUALIZACIÓN
-     * ------------------------------- */
+    /** ------------------------------- */
+    /** MÉTODOS DE ACTUALIZACIÓN */
+    /** ------------------------------- */
     public void setChats(List<String> nombres) {
         modeloChats.clear();
         for (String n : nombres) modeloChats.addElement(n);
@@ -645,71 +684,32 @@ public class ChatUI extends JPanel {
         this.usuarioActual = usuarioActual;
         this.gestorComunicacion = gestor;
 
-        actualizarPanelUsuarioActual();
-    }
-
-    private void actualizarPanelUsuarioActual() {
-        if (usuarioActual == null || panelUsuarioActual == null) return;
-
-        panelUsuarioActual.removeAll();
-
-        // Crear panel con foto y nombre
-        JPanel infoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        infoPanel.setOpaque(false);
-
-        // Cargar y mostrar foto si existe
-        if (usuarioActual.getFotoBase64() != null && !usuarioActual.getFotoBase64().isEmpty()) {
-            try {
-                byte[] imageBytes = Base64.getDecoder().decode(usuarioActual.getFotoBase64());
-                ByteArrayInputStream bis = new ByteArrayInputStream(imageBytes);
-                BufferedImage originalImage = ImageIO.read(bis);
-
-                if (originalImage != null) {
-                    int size = 48;
-                    Image scaledImage = originalImage.getScaledInstance(size, size, Image.SCALE_SMOOTH);
-                    JLabel lblFoto = new JLabel(new ImageIcon(scaledImage));
-                    lblFoto.setPreferredSize(new Dimension(size, size));
-                    lblFoto.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1, true));
-                    infoPanel.add(lblFoto);
-                } else {
-                    JLabel lblFotoDefault = new JLabel("👤");
-                    lblFotoDefault.setFont(new Font("SansSerif", Font.PLAIN, 32));
-                    lblFotoDefault.setPreferredSize(new Dimension(48, 48));
-                    infoPanel.add(lblFotoDefault);
+        gestor.setMensajePrivadoListener((emisor, contenido) -> {
+            SwingUtilities.invokeLater(() -> {
+                // Save incoming message to database
+                if (repositorioLocal != null) {
+                    String idMensaje = java.util.UUID.randomUUID().toString();
+                    repositorioLocal.guardarMensaje(
+                            idMensaje,
+                            emisor,
+                            usuarioActual.getCorreo(),
+                            null,
+                            contenido,
+                            "PRIVADO"
+                    );
                 }
-            } catch (Exception e) {
-                System.err.println("⚠️ Error al decodificar foto: " + e.getMessage());
-                JLabel lblFotoDefault = new JLabel("👤");
-                lblFotoDefault.setFont(new Font("SansSerif", Font.PLAIN, 32));
-                lblFotoDefault.setPreferredSize(new Dimension(48, 48));
-                infoPanel.add(lblFotoDefault);
-            }
-        } else {
-            JLabel lblFotoDefault = new JLabel("👤");
-            lblFotoDefault.setFont(new Font("SansSerif", Font.PLAIN, 32));
-            lblFotoDefault.setPreferredSize(new Dimension(48, 48));
-            infoPanel.add(lblFotoDefault);
-        }
 
+                // Display message if chat is open with this user
+                if (usuarioDestino != null && usuarioDestino.getCorreo().equals(emisor)) {
+                    taMensajes.append(usuarioDestino.getNombre() + ": " + contenido + "\n");
+                } else {
+                    // Show notification or update chat list
+                    System.out.println("[v0] Nuevo mensaje de " + emisor + " (chat no abierto)");
+                }
+            });
+        });
 
-        // Mostrar nombre del usuario
-        JPanel textoPanel = new JPanel(new GridLayout(2, 1, 0, 2));
-        textoPanel.setOpaque(false);
-
-        JLabel lblNombre = new JLabel(usuarioActual.getNombre());
-        lblNombre.setFont(new Font("SansSerif", Font.BOLD, 14));
-        textoPanel.add(lblNombre);
-
-        JLabel lblCorreo = new JLabel(usuarioActual.getCorreo());
-        lblCorreo.setFont(new Font("SansSerif", Font.PLAIN, 11));
-        lblCorreo.setForeground(Color.GRAY);
-        textoPanel.add(lblCorreo);
-
-        infoPanel.add(textoPanel);
-        panelUsuarioActual.add(infoPanel, BorderLayout.CENTER);
-
-        panelUsuarioActual.revalidate();
-        panelUsuarioActual.repaint();
+        actualizarPanelUsuarioActual();
     }
 
     public void configurarControladorCanales(CanalController controller, RepositorioLocal repo) {
@@ -746,5 +746,54 @@ public class ChatUI extends JPanel {
 
         Canal canal = canales.get(indice);
         mostrarChatCanal(canal);
+    }
+
+    private void actualizarPanelUsuarioActual() {
+        if (usuarioActual == null) return;
+
+        panelUsuarioActual.removeAll();
+
+        // Create user info panel
+        JPanel infoPanel = new JPanel(new BorderLayout(5, 5));
+        infoPanel.setOpaque(false);
+
+        // User photo
+        JLabel lblFoto = new JLabel();
+        if (usuarioActual.getFotoBase64() != null && !usuarioActual.getFotoBase64().isEmpty()
+                && !usuarioActual.getFotoBase64().equals("DEFAULT")) {
+            try {
+                byte[] bytes = Base64.getDecoder().decode(usuarioActual.getFotoBase64());
+                ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+                BufferedImage img = ImageIO.read(bis);
+                if (img != null) {
+                    Image scaled = img.getScaledInstance(48, 48, Image.SCALE_SMOOTH);
+                    lblFoto.setIcon(new ImageIcon(scaled));
+                } else {
+                    lblFoto.setIcon(new ImageIcon(crearIconoTexto("👤", 48, 48)));
+                }
+            } catch (Exception ex) {
+                lblFoto.setIcon(new ImageIcon(crearIconoTexto("👤", 48, 48)));
+            }
+        } else {
+            lblFoto.setIcon(new ImageIcon(crearIconoTexto("👤", 48, 48)));
+        }
+
+        // User name and email
+        JPanel textPanel = new JPanel(new GridLayout(2, 1));
+        textPanel.setOpaque(false);
+        JLabel lblNombre = new JLabel(usuarioActual.getNombre());
+        lblNombre.setFont(new Font("Arial", Font.BOLD, 14));
+        JLabel lblCorreo = new JLabel(usuarioActual.getCorreo());
+        lblCorreo.setFont(new Font("Arial", Font.PLAIN, 11));
+        lblCorreo.setForeground(Color.GRAY);
+        textPanel.add(lblNombre);
+        textPanel.add(lblCorreo);
+
+        infoPanel.add(lblFoto, BorderLayout.WEST);
+        infoPanel.add(textPanel, BorderLayout.CENTER);
+
+        panelUsuarioActual.add(infoPanel, BorderLayout.CENTER);
+        panelUsuarioActual.revalidate();
+        panelUsuarioActual.repaint();
     }
 }

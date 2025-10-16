@@ -163,6 +163,7 @@ public class ClienteUI extends JFrame {
 
         Usuario usuarioActual = authBusinessLogic.obtenerUsuarioActual();
         chatUI.configurarSesion(usuarioActual, gestorComunicacion);
+
         List<UsuarioConectado> conectados = authBusinessLogic.obtenerUsuariosConectados();
         List<Usuario> listaUsuarios = new ArrayList<>();
         for (UsuarioConectado uc : conectados) {
