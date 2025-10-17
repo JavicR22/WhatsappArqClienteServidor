@@ -7,8 +7,7 @@ import java.io.IOException;
 public class ReproductorAudio {
     private Clip clip;
 
-    public void abrir(String ruta) throws Exception {
-        File archivo = new File(ruta);
+    public void cargar(File archivo) throws Exception {
         AudioInputStream stream = AudioSystem.getAudioInputStream(archivo);
         clip = AudioSystem.getClip();
         clip.open(stream);
@@ -18,6 +17,23 @@ public class ReproductorAudio {
         if (clip != null) {
             clip.start();
         }
+    }
+
+    public void pausar() {
+        if (clip != null && clip.isRunning()) {
+            clip.stop();
+        }
+    }
+
+    public void detener() {
+        if (clip != null) {
+            clip.stop();
+            clip.setFramePosition(0);
+        }
+    }
+
+    public boolean estaReproduciendo() {
+        return clip != null && clip.isRunning();
     }
 
     public void cerrar() {

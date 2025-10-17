@@ -36,36 +36,24 @@ public class CanalBusinessLogic {
         try {
             Usuario usuario = authBusinessLogic.obtenerUsuarioActual();
             if (usuario == null) {
-                System.err.println("No hay usuario autenticado");
+                System.err.println("[v0] ❌ No hay usuario autenticado");
                 return false;
             }
 
-            MensajeCrearCanal mensaje = new MensajeCrearCanal(
-                    UUID.randomUUID().toString(),
-                    usuario,
-                    nombre,
-                    descripcion,
-                    privado
-            );
+            System.out.println("[v0] Enviando solicitud de creación de canal al servidor...");
+            System.out.println("[v0]   - Nombre: " + nombre);
+            System.out.println("[v0]   - Descripción: " + descripcion);
+            System.out.println("[v0]   - Privado: " + privado);
+            System.out.println("[v0]   - Creador: " + usuario.getCorreo());
 
-            gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
+            gestorComunicacion.crearCanal(nombre, descripcion, privado, usuario.getCorreo());
 
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                Canal canal = new Canal(nombre, privado, usuario.getCorreo(), new ArrayList<>());
-                repositorioLocal.guardarCanal(canal);
-
-                // Notificar a los observadores
-                servicioNotificaciones.notificar(mensaje);
-
-                System.out.println("✅ Canal creado exitosamente: " + nombre);
-                return true;
-            }
-
-            return false;
+            System.out.println("[v0] ✅ Solicitud de creación de canal enviada: " + nombre);
+            return true;
 
         } catch (Exception e) {
-            System.err.println("Error creando canal: " + e.getMessage());
+            System.err.println("[v0] ❌ Error creando canal: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
@@ -81,33 +69,10 @@ public class CanalBusinessLogic {
                 return false;
             }
 
-            MensajeInvitacion mensaje = new MensajeInvitacion(
-                    UUID.randomUUID().toString(),
-                    usuario,
-                    idCanal,
-                    nombreCanal,
-                    correosInvitados
-            );
+            gestorComunicacion.invitarUsuariosCanal(idCanal, nombreCanal, usuario.getCorreo(), correosInvitados);
 
-            gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
-
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                // Crear solicitudes localmente para cada usuario invitado
-                for (String correo : correosInvitados) {
-                    Solicitud solicitud = new Solicitud(
-                            UUID.randomUUID().toString(),
-                            correo,
-                            idCanal
-                    );
-                    repositorioLocal.guardarSolicitud(solicitud);
-                }
-
-                System.out.println("✅ Invitaciones enviadas exitosamente");
-                return true;
-            }
-
-            return false;
+            System.out.println("✅ Invitaciones enviadas exitosamente");
+            return true;
 
         } catch (Exception e) {
             System.err.println("Error invitando usuarios: " + e.getMessage());
@@ -126,35 +91,14 @@ public class CanalBusinessLogic {
                 return false;
             }
 
-            MensajeRespuestaInvitacion mensaje = new MensajeRespuestaInvitacion(
-                    UUID.randomUUID().toString(),
-                    usuario,
-                    idSolicitud,
-                    idCanal,
-                    aceptar
-            );
+            gestorComunicacion.responderInvitacion(idSolicitud, idCanal, usuario.getCorreo(), aceptar);
 
-            gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
+            // Actualizar estado de la solicitud localmente
+            String nuevoEstado = aceptar ? "ACEPTADA" : "RECHAZADA";
+            repositorioLocal.actualizarEstadoSolicitud(idSolicitud, nuevoEstado);
 
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                // Actualizar estado de la solicitud localmente
-                String nuevoEstado = aceptar ? "ACEPTADA" : "RECHAZADA";
-                repositorioLocal.actualizarEstadoSolicitud(idSolicitud, nuevoEstado);
-
-                // Si se aceptó, agregar al usuario como miembro del canal
-                if (aceptar) {
-                    repositorioLocal.agregarMiembroCanal(idCanal, usuario.getCorreo());
-                }
-
-                // Notificar a los observadores
-                servicioNotificaciones.notificar(mensaje);
-
-                System.out.println("✅ Invitación " + (aceptar ? "aceptada" : "rechazada"));
-                return true;
-            }
-
-            return false;
+            System.out.println("✅ Invitación " + (aceptar ? "aceptada" : "rechazada"));
+            return true;
 
         } catch (Exception e) {
             System.err.println("Error respondiendo invitación: " + e.getMessage());
@@ -168,11 +112,19 @@ public class CanalBusinessLogic {
     public List<Canal> obtenerCanalesDelUsuario() {
         Usuario usuario = authBusinessLogic.obtenerUsuarioActual();
         if (usuario == null) {
-            System.err.println("No hay usuario autenticado");
+            System.err.println("[v0] ❌ No hay usuario autenticado");
             return List.of();
         }
 
-        return repositorioLocal.obtenerCanalesDelUsuario(usuario.getCorreo());
+        System.out.println("[v0] Obteniendo canales del usuario: " + usuario.getCorreo());
+        List<Canal> canales = repositorioLocal.obtenerCanalesDelUsuario(usuario.getCorreo());
+        System.out.println("[v0] Canales obtenidos de BD: " + canales.size());
+
+        for (Canal c : canales) {
+            System.out.println("[v0]   - " + c.getNombre() + " (ID: " + c.getId() + ", Miembros: " + c.getMiembros().size() + ")");
+        }
+
+        return canales;
     }
 
     /**
@@ -181,10 +133,18 @@ public class CanalBusinessLogic {
     public List<Solicitud> obtenerSolicitudesPendientes() {
         Usuario usuario = authBusinessLogic.obtenerUsuarioActual();
         if (usuario == null) {
-            System.err.println("No hay usuario autenticado");
+            System.err.println("[v0] ❌ No hay usuario autenticado");
             return List.of();
         }
 
-        return repositorioLocal.obtenerSolicitudesPendientes(usuario.getCorreo());
+        System.out.println("[v0] Obteniendo solicitudes pendientes del usuario: " + usuario.getCorreo());
+        List<Solicitud> solicitudes = repositorioLocal.obtenerSolicitudesPendientes(usuario.getCorreo());
+        System.out.println("[v0] Solicitudes pendientes obtenidas de BD: " + solicitudes.size());
+
+        for (Solicitud s : solicitudes) {
+            System.out.println("[v0]   - ID: " + s.getId() + ", Canal ID: " + s.getIdCanal() + ", Estado: " + s.getEstado());
+        }
+
+        return solicitudes;
     }
 }
