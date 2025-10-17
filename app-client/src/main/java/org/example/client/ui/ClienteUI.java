@@ -229,29 +229,71 @@ public class ClienteUI extends JFrame {
 
             gestorComunicacion.setCanalCreadoListener((idCanal, nombre, descripcion, privado, creadorEmail, creadoEn) -> {
                 SwingUtilities.invokeLater(() -> {
-                    System.out.println("[v0] Procesando CANAL_CREADO: " + nombre);
+                    System.out.println("[v0] ========================================");
+                    System.out.println("[v0] CANAL_CREADO recibido del servidor");
+                    System.out.println("[v0] ID: " + idCanal);
+                    System.out.println("[v0] Nombre: " + nombre);
+                    System.out.println("[v0] Descripción: " + descripcion);
+                    System.out.println("[v0] Privado: " + privado);
+                    System.out.println("[v0] Creador: " + creadorEmail);
+                    System.out.println("[v0] Timestamp: " + creadoEn);
+                    System.out.println("[v0] ========================================");
 
-                    // Crear objeto Canal
-                    List<String> miembros = new ArrayList<>();
-                    miembros.add(creadorEmail);
-                    Canal nuevoCanal = new Canal(idCanal, nombre, descripcion, privado, creadorEmail, miembros, creadoEn);
+                    try {
+                        List<String> miembros = new ArrayList<>();
+                        miembros.add(creadorEmail);
+                        Canal nuevoCanal = new Canal(idCanal, nombre, descripcion, privado, creadorEmail, miembros, creadoEn);
 
-                    // Guardar en base de datos local
-                    boolean guardado = repositorioLocal.guardarCanal(nuevoCanal);
-                    if (guardado) {
-                        System.out.println("[v0] Canal guardado en base de datos local: " + nombre);
+                        System.out.println("[v0] Canal creado en memoria con " + nuevoCanal.getMiembros().size() + " miembros");
+                        System.out.println("[v0] Miembros: " + String.join(", ", nuevoCanal.getMiembros()));
 
-                        // Actualizar UI si chatUI está visible
-                        if (chatUI != null) {
-                            chatUI.cargarCanales();
+                        if (repositorioLocal == null) {
+                            System.err.println("[v0] ❌ ERROR: repositorioLocal es NULL");
+                            JOptionPane.showMessageDialog(this,
+                                    "Error: Sistema de persistencia no disponible",
+                                    "Error",
+                                    JOptionPane.ERROR_MESSAGE);
+                            return;
                         }
 
+                        System.out.println("[v0] Intentando guardar canal en base de datos...");
+                        boolean guardado = repositorioLocal.guardarCanal(nuevoCanal);
+
+                        if (guardado) {
+                            System.out.println("[v0] ✅ Canal guardado exitosamente en base de datos");
+
+                            List<Canal> canalesGuardados = repositorioLocal.obtenerCanalesDelUsuario(creadorEmail);
+                            System.out.println("[v0] Canales en BD para " + creadorEmail + ": " + canalesGuardados.size());
+                            for (Canal c : canalesGuardados) {
+                                System.out.println("[v0]   - " + c.getNombre() + " (ID: " + c.getId() + ")");
+                            }
+
+                            if (chatUI != null) {
+                                System.out.println("[v0] Actualizando lista de canales en UI...");
+                                chatUI.cargarCanales();
+                                System.out.println("[v0] ✅ Lista de canales actualizada en UI");
+                            } else {
+                                System.err.println("[v0] ❌ chatUI es NULL, no se puede actualizar UI");
+                            }
+
+                            JOptionPane.showMessageDialog(this,
+                                    "Canal '" + nombre + "' creado y guardado exitosamente",
+                                    "Canal creado",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                        } else {
+                            System.err.println("[v0] ❌ Error: guardarCanal() retornó false");
+                            JOptionPane.showMessageDialog(this,
+                                    "Canal creado en servidor pero no se pudo guardar localmente",
+                                    "Advertencia",
+                                    JOptionPane.WARNING_MESSAGE);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[v0] ❌ Excepción procesando CANAL_CREADO: " + e.getMessage());
+                        e.printStackTrace();
                         JOptionPane.showMessageDialog(this,
-                                "Canal '" + nombre + "' creado exitosamente",
-                                "Canal creado",
-                                JOptionPane.INFORMATION_MESSAGE);
-                    } else {
-                        System.err.println("[v0] Error guardando canal en base de datos local");
+                                "Error procesando canal: " + e.getMessage(),
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
                     }
                 });
             });
@@ -277,6 +319,9 @@ public class ClienteUI extends JFrame {
 
         // Ahora configurar la sesión (esto llamará a cargarChatPreviews con repositorioLocal ya configurado)
         chatUI.configurarSesion(usuarioActual, gestorComunicacion);
+
+        System.out.println("[v0] Cargando canales existentes para: " + usuarioActual.getCorreo());
+        chatUI.cargarCanales();
 
         List<UsuarioConectado> conectados = authBusinessLogic.obtenerUsuariosConectados();
         List<Usuario> listaUsuarios = new ArrayList<>();
@@ -386,7 +431,6 @@ public class ClienteUI extends JFrame {
 
                 GestorComunicacion gestorTemp = new GestorComunicacion();
                 boolean conectado = gestorTemp.conectar(ip, puerto);
-
 
                 if (conectado) {
                     // Éxito: guardamos el gestor y cerramos el diálogo

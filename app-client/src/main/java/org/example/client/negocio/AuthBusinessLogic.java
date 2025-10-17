@@ -1,6 +1,7 @@
 package org.example.client.negocio;
 
 import org.example.client.comunicacion.GestorComunicacion;
+import org.example.client.config.ConfigManager;
 import org.example.client.modelo.*;
 
 import java.util.List;
@@ -72,11 +73,11 @@ public class AuthBusinessLogic {
             // Enviar al servidor
             gestorComunicacion.enviarMensaje(mensajeAuth);
 
-            // Esperar respuesta (máximo 10 segundos)
-            boolean recibido = latch.await(10, TimeUnit.SECONDS);
+            long timeoutSeconds = ConfigManager.getLong("auth.timeout.seconds", 30);
+            boolean recibido = latch.await(timeoutSeconds, TimeUnit.SECONDS);
 
             if (!recibido) {
-                System.err.println("❌ Timeout esperando respuesta de autenticación");
+                System.err.println("❌ Timeout esperando respuesta de autenticación (" + timeoutSeconds + " segundos)");
                 return false;
             }
 
@@ -88,13 +89,21 @@ public class AuthBusinessLogic {
                     usuario.setId(correo);
                     usuario.setNombre(correo);
                     usuario.setRol("Estudiante");
+
+                    int maxIterations = ConfigManager.getInt("photo.wait.iterations", 20);
+                    long delayMs = ConfigManager.getLong("photo.wait.delay.ms", 500);
+
                     // Intentar obtener la foto (esperar un poco si aún no ha llegado)
                     String foto = gestorComunicacion.getFotoUsuarioActual();
                     if (foto == null) {
-                        for (int i = 0; i < 10; i++) {
-                            Thread.sleep(300);
+                        System.out.println("[v0] Esperando foto del usuario (máx " + (maxIterations * delayMs / 1000) + " segundos)...");
+                        for (int i = 0; i < maxIterations; i++) {
+                            Thread.sleep(delayMs);
                             foto = gestorComunicacion.getFotoUsuarioActual();
-                            if (foto != null) break;
+                            if (foto != null) {
+                                System.out.println("[v0] Foto recibida después de " + ((i + 1) * delayMs / 1000.0) + " segundos");
+                                break;
+                            }
                         }
                     }
 

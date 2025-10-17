@@ -37,7 +37,6 @@ public class GestorComunicacion {
 
     private CanalCreadoListener canalCreadoListener;
 
-
     public interface MensajeListener {
         void onMensajeRecibido(String mensaje);
     }
@@ -65,7 +64,6 @@ public class GestorComunicacion {
     public List<UsuarioConectado> getUsuariosConectados() {
         return new ArrayList<>(usuariosConectados);
     }
-
 
     public void activarModoMock(boolean activar) {
         this.modoMock = activar;
@@ -110,20 +108,33 @@ public class GestorComunicacion {
 
                     if (mensaje.startsWith("CANAL_CREADO|")) {
                         String[] partes = mensaje.split("\\|");
-                        if (partes.length >= 7) {
+                        System.out.println("[v0] Parseando CANAL_CREADO - partes: " + partes.length);
+
+                        // Formato del servidor: CANAL_CREADO|idCanal|nombre|descripcion|privado|usernameCreador
+                        if (partes.length >= 6) {
                             String idCanal = partes[1];
                             String nombre = partes[2];
                             String descripcion = partes[3];
                             boolean privado = Boolean.parseBoolean(partes[4]);
                             String creadorEmail = partes[5];
-                            long creadoEn = Long.parseLong(partes[6]);
+                            long creadoEn = System.currentTimeMillis(); // Usar timestamp actual si no viene del servidor
 
-                            System.out.println("[v0] Canal creado exitosamente: " + nombre + " (ID: " + idCanal + ")");
+                            System.out.println("[v0] ✅ Canal parseado correctamente:");
+                            System.out.println("    - ID: " + idCanal);
+                            System.out.println("    - Nombre: " + nombre);
+                            System.out.println("    - Descripción: " + descripcion);
+                            System.out.println("    - Privado: " + privado);
+                            System.out.println("    - Creador: " + creadorEmail);
 
                             // Notificar al listener
                             if (canalCreadoListener != null) {
+                                System.out.println("[v0] Notificando al listener de CANAL_CREADO...");
                                 canalCreadoListener.onCanalCreado(idCanal, nombre, descripcion, privado, creadorEmail, creadoEn);
+                            } else {
+                                System.err.println("[v0] ⚠️ No hay listener registrado para CANAL_CREADO");
                             }
+                        } else {
+                            System.err.println("[v0] ❌ Formato incorrecto de CANAL_CREADO. Se esperaban al menos 6 partes, se recibieron: " + partes.length);
                         }
                         continue;
                     }

@@ -33,4 +33,40 @@ public class ConfigManager {
     public int getInt(String key) {
         return Integer.parseInt(properties.getProperty(key));
     }
+
+    private static ConfigManager instance;
+
+    public static ConfigManager getInstance() {
+        if (instance == null) {
+            instance = new ConfigManager("client-config.properties");
+        }
+        return instance;
+    }
+
+    public static String get(String key, String defaultValue) {
+        try {
+            String value = getInstance().get(key);
+            return value != null ? value : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    public static int getInt(String key, int defaultValue) {
+        try {
+            String value = getInstance().get(key);
+            return value != null ? Integer.parseInt(value) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    public static long getLong(String key, long defaultValue) {
+        try {
+            String value = getInstance().get(key);
+            return value != null ? Long.parseLong(value) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
 }

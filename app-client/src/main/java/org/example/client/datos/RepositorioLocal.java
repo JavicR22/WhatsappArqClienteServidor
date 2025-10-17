@@ -217,6 +217,34 @@ public class RepositorioLocal {
         Connection conn = null;
         try {
             conn = poolConexiones.obtenerConexion();
+
+            String checkSql = "SELECT COUNT(*) FROM canales WHERE id = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setString(1, canal.getId());
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (rs.next() && rs.getInt(1) > 0) {
+                System.out.println("[v0] Canal ya existe en BD (ID: " + canal.getId() + "), actualizando...");
+                String updateSql = "UPDATE canales SET nombre = ?, descripcion = ?, privado = ?, creador_email = ?, creado_en = ? WHERE id = ?";
+                PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                updateStmt.setString(1, canal.getNombre());
+                updateStmt.setString(2, canal.getDescripcion());
+                updateStmt.setBoolean(3, canal.isPrivado());
+                updateStmt.setString(4, canal.getCreadorEmail());
+                updateStmt.setLong(5, canal.getCreadoEn());
+                updateStmt.setString(6, canal.getId());
+                int updated = updateStmt.executeUpdate();
+                System.out.println("[v0] Canal actualizado: " + (updated > 0 ? "SI" : "NO"));
+
+                for (String miembro : canal.getMiembros()) {
+                    boolean miembroGuardado = agregarMiembroCanal(canal.getId(), miembro);
+                    System.out.println("[v0] Miembro " + miembro + " actualizado: " + miembroGuardado);
+                }
+
+                return updated > 0;
+            }
+
+            System.out.println("[v0] Insertando nuevo canal en BD...");
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, canal.getId());
             stmt.setString(2, canal.getNombre());
@@ -226,18 +254,30 @@ public class RepositorioLocal {
             stmt.setLong(6, canal.getCreadoEn());
 
             int filasAfectadas = stmt.executeUpdate();
+            System.out.println("[v0] Filas insertadas en tabla canales: " + filasAfectadas);
 
-            // Guardar miembros del canal
             if (filasAfectadas > 0) {
+                System.out.println("[v0] Canal insertado, guardando " + canal.getMiembros().size() + " miembros...");
                 for (String miembro : canal.getMiembros()) {
-                    agregarMiembroCanal(canal.getId(), miembro);
+                    System.out.println("[v0] Guardando miembro: " + miembro);
+                    boolean miembroGuardado = agregarMiembroCanal(canal.getId(), miembro);
+                    System.out.println("[v0] Miembro " + miembro + " guardado: " + miembroGuardado);
                 }
+
+                List<String> miembrosGuardados = obtenerMiembrosCanal(canal.getId());
+                System.out.println("[v0] Miembros guardados en BD: " + miembrosGuardados.size());
+                for (String m : miembrosGuardados) {
+                    System.out.println("[v0]   - " + m);
+                }
+            } else {
+                System.err.println("[v0] ❌ No se insertó el canal en la BD");
             }
 
             return filasAfectadas > 0;
 
         } catch (SQLException e) {
-            System.err.println("Error guardando canal: " + e.getMessage());
+            System.err.println("[v0] ❌ SQLException guardando canal: " + e.getMessage());
+            e.printStackTrace();
             return false;
         } finally {
             if (conn != null) {
@@ -294,20 +334,34 @@ public class RepositorioLocal {
      * Agrega un miembro a un canal
      */
     public boolean agregarMiembroCanal(String idCanal, String correoUsuario) {
+        String checkSql = "SELECT COUNT(*) FROM canal_miembros WHERE id_canal = ? AND correo_usuario = ?";
         String sql = "INSERT INTO canal_miembros (id_canal, correo_usuario) VALUES (?, ?)";
 
         Connection conn = null;
         try {
             conn = poolConexiones.obtenerConexion();
+
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setString(1, idCanal);
+            checkStmt.setString(2, correoUsuario);
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (rs.next() && rs.getInt(1) > 0) {
+                System.out.println("[v0] Miembro " + correoUsuario + " ya existe en canal " + idCanal);
+                return true; // Ya existe, consideramos éxito
+            }
+
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, idCanal);
             stmt.setString(2, correoUsuario);
 
             int filasAfectadas = stmt.executeUpdate();
+            System.out.println("[v0] Filas insertadas en canal_miembros: " + filasAfectadas);
             return filasAfectadas > 0;
 
         } catch (SQLException e) {
-            System.err.println("Error agregando miembro al canal: " + e.getMessage());
+            System.err.println("[v0] ❌ SQLException agregando miembro al canal: " + e.getMessage());
+            e.printStackTrace();
             return false;
         } finally {
             if (conn != null) {

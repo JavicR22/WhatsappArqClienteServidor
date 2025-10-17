@@ -36,17 +36,24 @@ public class CanalBusinessLogic {
         try {
             Usuario usuario = authBusinessLogic.obtenerUsuarioActual();
             if (usuario == null) {
-                System.err.println("No hay usuario autenticado");
+                System.err.println("[v0] ❌ No hay usuario autenticado");
                 return false;
             }
 
+            System.out.println("[v0] Enviando solicitud de creación de canal al servidor...");
+            System.out.println("[v0]   - Nombre: " + nombre);
+            System.out.println("[v0]   - Descripción: " + descripcion);
+            System.out.println("[v0]   - Privado: " + privado);
+            System.out.println("[v0]   - Creador: " + usuario.getCorreo());
+
             gestorComunicacion.crearCanal(nombre, descripcion, privado, usuario.getCorreo());
 
-            System.out.println("✅ Solicitud de creación de canal enviada: " + nombre);
+            System.out.println("[v0] ✅ Solicitud de creación de canal enviada: " + nombre);
             return true;
 
         } catch (Exception e) {
-            System.err.println("Error creando canal: " + e.getMessage());
+            System.err.println("[v0] ❌ Error creando canal: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
@@ -105,11 +112,19 @@ public class CanalBusinessLogic {
     public List<Canal> obtenerCanalesDelUsuario() {
         Usuario usuario = authBusinessLogic.obtenerUsuarioActual();
         if (usuario == null) {
-            System.err.println("No hay usuario autenticado");
+            System.err.println("[v0] ❌ No hay usuario autenticado");
             return List.of();
         }
 
-        return repositorioLocal.obtenerCanalesDelUsuario(usuario.getCorreo());
+        System.out.println("[v0] Obteniendo canales del usuario: " + usuario.getCorreo());
+        List<Canal> canales = repositorioLocal.obtenerCanalesDelUsuario(usuario.getCorreo());
+        System.out.println("[v0] Canales obtenidos de BD: " + canales.size());
+
+        for (Canal c : canales) {
+            System.out.println("[v0]   - " + c.getNombre() + " (ID: " + c.getId() + ", Miembros: " + c.getMiembros().size() + ")");
+        }
+
+        return canales;
     }
 
     /**
@@ -118,10 +133,18 @@ public class CanalBusinessLogic {
     public List<Solicitud> obtenerSolicitudesPendientes() {
         Usuario usuario = authBusinessLogic.obtenerUsuarioActual();
         if (usuario == null) {
-            System.err.println("No hay usuario autenticado");
+            System.err.println("[v0] ❌ No hay usuario autenticado");
             return List.of();
         }
 
-        return repositorioLocal.obtenerSolicitudesPendientes(usuario.getCorreo());
+        System.out.println("[v0] Obteniendo solicitudes pendientes del usuario: " + usuario.getCorreo());
+        List<Solicitud> solicitudes = repositorioLocal.obtenerSolicitudesPendientes(usuario.getCorreo());
+        System.out.println("[v0] Solicitudes pendientes obtenidas de BD: " + solicitudes.size());
+
+        for (Solicitud s : solicitudes) {
+            System.out.println("[v0]   - ID: " + s.getId() + ", Canal ID: " + s.getIdCanal() + ", Estado: " + s.getEstado());
+        }
+
+        return solicitudes;
     }
 }

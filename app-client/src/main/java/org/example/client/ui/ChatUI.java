@@ -1035,18 +1035,39 @@ public class ChatUI extends JPanel {
     }
 
     public void cargarCanales() {
-        if (canalController == null) return;
+        System.out.println("[v0] ========================================");
+        System.out.println("[v0] cargarCanales() iniciado");
+
+        if (canalController == null) {
+            System.err.println("[v0] ❌ canalController es NULL");
+            return;
+        }
+
+        if (usuarioActual == null) {
+            System.err.println("[v0] ❌ usuarioActual es NULL");
+            return;
+        }
+
+        System.out.println("[v0] Usuario actual: " + usuarioActual.getCorreo());
 
         modeloCanales.clear();
         canales = canalController.obtenerCanales();
 
+        System.out.println("[v0] Canales obtenidos del controller: " + canales.size());
+
         if (canales.isEmpty()) {
+            System.out.println("[v0] No hay canales, mostrando mensaje");
             modeloCanales.addElement("No tienes canales aún");
         } else {
+            System.out.println("[v0] Agregando " + canales.size() + " canales a la UI:");
             for (Canal c : canales) {
-                modeloCanales.addElement(c.toString());
+                String displayText = c.toString();
+                System.out.println("[v0]   - " + displayText + " (ID: " + c.getId() + ", Miembros: " + c.getMiembros().size() + ")");
+                modeloCanales.addElement(displayText);
             }
         }
+
+        System.out.println("[v0] ========================================");
     }
 
     public void configurarSesion(Usuario usuarioActual, GestorComunicacion gestor) {
@@ -1104,9 +1125,19 @@ public class ChatUI extends JPanel {
     }
 
     public void configurarControladorCanales(CanalController controller, RepositorioLocal repo) {
+        System.out.println("[v0] configurarControladorCanales() llamado");
+        System.out.println("[v0] RepositorioLocal: " + (repo != null ? "OK" : "NULL"));
+        System.out.println("[v0] CanalController: " + (controller != null ? "OK" : "NULL"));
+
         this.repositorioLocal = repo;
         this.canalController = controller;
-        cargarCanales();
+
+        if (usuarioActual != null) {
+            System.out.println("[v0] Usuario actual disponible, cargando canales...");
+            cargarCanales();
+        } else {
+            System.out.println("[v0] Usuario actual no disponible aún, esperando configurarSesion()");
+        }
 
         if (usuarioActual != null && repositorioLocal != null) {
             SwingUtilities.invokeLater(() -> {
