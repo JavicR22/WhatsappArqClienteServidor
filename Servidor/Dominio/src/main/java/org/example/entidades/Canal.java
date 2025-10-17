@@ -10,11 +10,51 @@ public class Canal {
     private List<Usuario> usuarios;
     private List<MensajeTextoCanal> mensajeTextoCanales;
     private LocalDateTime fechaCreacion;
+    private String usernameCreador;
+    private String descripcion;
+    private Boolean privado;
 
-    public Canal(int idCanal, String nombreCanal, LocalDateTime fechaCreacion) {
+    public String getUsernameCreador() {
+        return usernameCreador;
+    }
+
+    public void setUsernameCreador(String usernameCreador) {
+        this.usernameCreador = usernameCreador;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public Boolean getPrivado() {
+        return privado;
+    }
+
+    public void setPrivado(Boolean privado) {
+        this.privado = privado;
+    }
+
+    public Canal(int idCanal, String nombreCanal, LocalDateTime fechaCreacion, String usernameCreador,
+                 String descripcion, Boolean privado) {
         this.idCanal=idCanal;
         this.nombreCanal=nombreCanal;
         this.fechaCreacion=fechaCreacion;
+        this.usernameCreador=usernameCreador;
+        this.descripcion=descripcion;
+        this.privado=privado;
+    }
+    public Canal( String nombreCanal, LocalDateTime fechaCreacion, String usernameCreador,
+                 String descripcion, Boolean privado) {
+
+        this.nombreCanal=nombreCanal;
+        this.fechaCreacion=fechaCreacion;
+        this.usernameCreador=usernameCreador;
+        this.descripcion=descripcion;
+        this.privado=privado;
     }
 
     public Canal(String nombreCanal) {

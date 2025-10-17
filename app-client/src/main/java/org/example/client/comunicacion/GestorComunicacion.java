@@ -227,7 +227,7 @@ public class GestorComunicacion {
         salida.flush();
         */
         // 🔺 --- FIN CÓDIGO ORIGINAL ---
-    
+
 
     // NUEVO: para almacenar la respuesta simulada del mock
     private Mensaje ultimaRespuestaMock = null;

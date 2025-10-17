@@ -23,6 +23,10 @@ public class MensajeriaDispatcher {
         observers.forEach(o -> o.onMensajeCanal(idCanal, protocolo));
     }
 
+    public void notificarCreacionCanal(String username, String protocolo){
+        observers.forEach(o -> o.onNuevaCanal(username, protocolo));
+    }
+
     public void notificarUsuarioConectado(String username) {
         observers.forEach(o -> o.onUsuarioConectado(username));
     }

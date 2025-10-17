@@ -10,4 +10,5 @@ public interface UsuarioRepositorio {
     Optional<Usuario> buscarPorUsername(String username);
     List<Usuario> listarTodos();
     void eliminarPorUsername(String username);
+    Optional<Usuario> buscarPorCorreo(String correo);
 }

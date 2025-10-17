@@ -1,4 +1,4 @@
-package org.example.view;
+package org.example.presentacion.view;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;

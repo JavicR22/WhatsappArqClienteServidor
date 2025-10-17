@@ -11,5 +11,7 @@ public interface UsuarioService {
     List<Usuario> listarUsuarios();
     Usuario buscarPorUsername(String username);
 
+    Usuario buscarPorCorreo(String correo);
+
     void eliminarUsuario(String username);
 }

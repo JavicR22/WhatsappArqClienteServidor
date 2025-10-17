@@ -3,6 +3,7 @@ package org.example.configuracioConexion;
 import org.example.objectPool.ConnectionPool;
 import org.example.FileBase64Encoder;
 import org.example.entidades.Usuario;
+import org.example.servicio.CanalService;
 import org.example.servicio.MensajeriaService;
 import org.example.servicio.UsuarioService;
 
@@ -16,13 +17,15 @@ public class AuthHandler implements Runnable {
     private final ConnectionPool pool;
     private final UsuarioService usuarioService;
     private final MensajeriaService mensajeriaService;
+    private final CanalService canalService;
 
     public AuthHandler(Socket socket, ConnectionPool pool, UsuarioService usuarioService,
-                       MensajeriaService mensajeriaService) {
+                       MensajeriaService mensajeriaService, CanalService canalService) {
         this.socket = socket;
         this.pool = pool;
         this.usuarioService = usuarioService;
         this.mensajeriaService=mensajeriaService;
+        this.canalService=canalService;
     }
 
     @Override
@@ -84,7 +87,7 @@ public class AuthHandler implements Runnable {
             }
 
             // 7️⃣ Entregar control a ClientHandler
-            new Thread(new ClientHandler(pool, conexion, mensajeriaService)).start();
+            new Thread(new ClientHandler(pool, conexion, mensajeriaService, canalService)).start();
 
         } catch (IOException e) {
             System.err.println("Error en autenticación: " + e.getMessage());

@@ -84,4 +84,27 @@ public class UsuarioRepositorioImpl implements UsuarioRepositorio {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public Optional<Usuario> buscarPorCorreo(String correo) {
+        String sql = "SELECT * FROM email WHERE username = ?";
+        try (Connection conn = adaptadorBaseDatos.obtenerConexion();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, correo);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Usuario u = new Usuario(
+                        rs.getString("username"),
+                        rs.getString("email"),
+                        rs.getString("password"),
+                        rs.getString("ruta_foto"),
+                        rs.getString("direccion_ip")
+                );
+                return Optional.of(u);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return Optional.empty();
+    }
 }

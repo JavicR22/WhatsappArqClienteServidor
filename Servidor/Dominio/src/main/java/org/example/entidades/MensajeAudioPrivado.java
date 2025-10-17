@@ -15,6 +15,7 @@ public class MensajeAudioPrivado {
         this.rutaAudio = rutaAudio;
         this.fechaEnvio = fechaEnvio;
     }
+    public MensajeAudioPrivado(){}
 
     String rutaAudio;
     LocalDateTime fechaEnvio;

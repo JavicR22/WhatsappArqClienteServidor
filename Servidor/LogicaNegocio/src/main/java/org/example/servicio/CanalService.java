@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CanalService {
-    Canal crearCanal(String nombreCanal) throws Exception;
+    Canal crearCanal(Canal canal) throws Exception;
 
     /**
      * Obtiene un canal por su nombre.

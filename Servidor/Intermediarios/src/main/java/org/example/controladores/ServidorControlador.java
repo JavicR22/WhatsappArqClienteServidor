@@ -4,6 +4,7 @@ import org.example.configuracioConexion.ChatServer;
 import org.example.entidades.ConfiguracionConexiones;
 import org.example.entidades.Usuario;
 import org.example.eventos.MensajeriaDispatcher;
+import org.example.servicio.CanalService;
 import org.example.servicio.MensajeriaService;
 import org.example.servicio.impl.UsuarioServiceImpl;
 
@@ -16,12 +17,14 @@ public class ServidorControlador {
     private final UsuarioServiceImpl usuarioService;
     private final MensajeriaService mensajeriaService;
     private MensajeriaDispatcher dispatcher;
+    private final CanalService canalService;
 
     public ServidorControlador(UsuarioServiceImpl usuarioService, MensajeriaDispatcher dispatcher,
-                               MensajeriaService mensajeService) {
+                               MensajeriaService mensajeService, CanalService canalService) {
         this.usuarioService = usuarioService;
         this.dispatcher = dispatcher; // 🔹 Inicializamos el dispatcher aquí
         this.mensajeriaService=mensajeService;
+        this.canalService=canalService;
     }
 
     /**
@@ -29,7 +32,7 @@ public class ServidorControlador {
      */
     public void iniciarServidor(int puerto, int maxUsuarios, boolean esLimitado) {
         ConfiguracionConexiones config = new ConfiguracionConexiones(maxUsuarios, esLimitado);
-        chatServer = new ChatServer(puerto, config, usuarioService, dispatcher, mensajeriaService);
+        chatServer = new ChatServer(puerto, config, usuarioService, dispatcher, mensajeriaService, canalService);
         new Thread(chatServer::iniciar).start();
     }
 

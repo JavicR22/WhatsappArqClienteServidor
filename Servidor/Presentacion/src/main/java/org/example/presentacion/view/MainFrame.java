@@ -1,4 +1,4 @@
-package org.example.view;
+package org.example.presentacion.view;
 
 import org.example.controladores.ServidorControlador;
 import org.example.controladores.UsuarioControlador;

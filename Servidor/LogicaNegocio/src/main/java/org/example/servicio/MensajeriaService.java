@@ -1,9 +1,6 @@
 package org.example.servicio;
 
-import org.example.entidades.MensajeAudioCanal;
-import org.example.entidades.MensajeAudioPrivado;
-import org.example.entidades.MensajeTextoCanal;
-import org.example.entidades.MensajeTextoPrivado;
+import org.example.entidades.*;
 
 public interface MensajeriaService {
     void enviarMensajeTextoPrivado(MensajeTextoPrivado mensaje) throws Exception;
@@ -13,7 +10,7 @@ public interface MensajeriaService {
      * @param mensaje El objeto MensajeAudioPrivado a procesar.
      * @throws Exception si falla la persistencia o alguna validación.
      */
-    void enviarMensajeAudioPrivado(MensajeAudioPrivado mensaje) throws Exception;
+    void enviarMensajeAudioPrivado(String mensaje, String receptor, String emisor) throws Exception;
 
     /**
      * Procesa un mensaje de texto de canal: lo guarda en DB y lo notifica a todos los miembros del canal.
@@ -28,4 +25,6 @@ public interface MensajeriaService {
      * @throws Exception si falla la persistencia o alguna validación.
      */
     void enviarMensajeAudioCanal(MensajeAudioCanal mensaje) throws Exception;
+    void guardarMensajeAudioPrivado(MensajeAudioPrivado mensajeAudioPrivado);
+    void guardarCanal(Canal canal);
 }

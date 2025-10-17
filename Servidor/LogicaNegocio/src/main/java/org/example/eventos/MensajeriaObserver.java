@@ -5,4 +5,5 @@ public interface MensajeriaObserver {
     void onMensajeCanal(String idCanal, String protocolo);
     void onUsuarioConectado(String username);
     void onUsuarioDesconectado(String username);
+    void onNuevaCanal(String nombre, String protocolo);
 }

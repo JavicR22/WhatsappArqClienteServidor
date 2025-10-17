@@ -6,6 +6,7 @@ import org.example.eventos.MensajeriaDispatcher;
 import org.example.eventos.MensajeriaObserver;
 import org.example.objectPool.ConnectionPool;
 import org.example.entidades.ConfiguracionConexiones;
+import org.example.servicio.CanalService;
 import org.example.servicio.MensajeriaService;
 import org.example.servicio.UsuarioService;
 
@@ -26,19 +27,22 @@ public class ChatServer implements MensajeriaObserver {
     private final MensajeriaDispatcher dispatcher;
     private ServerSocket serverSocket;
     private final MensajeriaService mensajeriaService;
+    private final CanalService canalService;
     private volatile boolean enEjecucion = false; // bandera segura para hilos
 
     public ChatServer(int puerto,
                       ConfiguracionConexiones config,
                       UsuarioService usuarioService,
                       MensajeriaDispatcher dispatcher,
-                      MensajeriaService mensajeriaService) {
+                      MensajeriaService mensajeriaService,
+                      CanalService canalService) {
         this.puerto = puerto;
         this.usuarioService = usuarioService;
         this.dispatcher = dispatcher;
         this.pool = new ConnectionPool(config, dispatcher);
         this.dispatcher.addObserver(this);
         this.mensajeriaService=mensajeriaService;
+        this.canalService=canalService;
     }
 
     @Override
@@ -64,6 +68,16 @@ public class ChatServer implements MensajeriaObserver {
     @Override
     public void onUsuarioConectado(String username) {
         broadcastUsuariosConectados();    }
+
+    @Override
+    public void onNuevaCanal(String username, String protocolo) {
+        var conexionDestino = pool.obtenerConexion(username);
+        if (conexionDestino != null) {
+            conexionDestino.enviar(protocolo);
+        } else {
+            System.out.println("⚠️ No se pudo enviar mensaje privado. Usuario no conectado: " + username);
+        }
+    }
 
     @Override
     public void onUsuarioDesconectado(String username) {
@@ -97,7 +111,7 @@ public class ChatServer implements MensajeriaObserver {
                 }
 
                 // Manejar autenticación y registro de usuario
-                new Thread(new AuthHandler(socket, pool, usuarioService, mensajeriaService)).start();
+                new Thread(new AuthHandler(socket, pool, usuarioService, mensajeriaService, canalService)).start();
             }
 
         } catch (IOException e) {

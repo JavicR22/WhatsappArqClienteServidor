@@ -45,6 +45,17 @@ public class UsuarioServiceImpl implements UsuarioService {
         }
         return usuarioOpt.get();
     }
+
+    @Override
+    public Usuario buscarPorCorreo(String correo) {
+        Optional<Usuario> usuarioOpt = usuarioRepositorio.buscarPorCorreo(correo);
+        if (usuarioOpt.isEmpty()) {
+            System.out.println("❌ Usuario no encontrado: " + correo);
+            return null;
+        }
+        return usuarioOpt.get();
+    }
+
     public Usuario autenticarConIP(String username, String password, String ipCliente) {
 
 

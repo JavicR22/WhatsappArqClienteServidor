@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/AudioDecoder/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/AudioDecoder/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Base64Encoder/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Base64Encoder/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Comunicacion/src/main/java" charset="UTF-8" />
@@ -19,6 +21,8 @@
     <file url="file://$PROJECT_DIR$/ObjectPool/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Presentacion/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Presentacion/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/TranscriptorAudio/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/TranscriptorAudio/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app-client/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app-client/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/app-common/src/main/java" charset="UTF-8" />

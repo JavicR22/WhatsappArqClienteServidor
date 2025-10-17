@@ -37,12 +37,29 @@ public class MensajeriaServiceImpl implements MensajeriaService {
     }
 
     @Override
-    public void enviarMensajeAudioPrivado(MensajeAudioPrivado mensaje) throws Exception {
+    public void enviarMensajeAudioPrivado(String mensaje64, String receptor, String emisor) throws Exception {
+
+
+        String protocolo = String.format("MSG_AUDIO_PRIVADO|%s|%s",
+               emisor,
+                mensaje64);
+
+        dispatcher.notificarMensajePrivado(receptor, protocolo);
 
     }
 
     @Override
     public void enviarMensajeAudioCanal(MensajeAudioCanal mensaje) throws Exception {
+
+    }
+
+    @Override
+    public void guardarMensajeAudioPrivado(MensajeAudioPrivado mensajeAudioPrivado)  {
+        audioPrivadoRepo.guardar(mensajeAudioPrivado);
+    }
+
+    @Override
+    public void guardarCanal(Canal canal) {
 
     }
 
@@ -77,4 +94,5 @@ public class MensajeriaServiceImpl implements MensajeriaService {
 
         dispatcher.notificarMensajeCanal(String.valueOf(canal.getIdCanal()), protocolo);
     }
+
 }
