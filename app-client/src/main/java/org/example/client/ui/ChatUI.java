@@ -10,10 +10,11 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.util.Base64;
 import java.util.List;
 import javax.imageio.ImageIO;
-import java.io.ByteArrayInputStream;
 
 /**
  * Chat principal al estilo WhatsApp Desktop.
@@ -22,10 +23,10 @@ import java.io.ByteArrayInputStream;
 public class ChatUI extends JPanel {
 
     // 🧩 Componentes de la interfaz
-    private DefaultListModel<String> modeloChats = new DefaultListModel<>();
+    private DefaultListModel<ChatPreview> modeloChats = new DefaultListModel<>();
     private DefaultListModel<String> modeloCanales = new DefaultListModel<>();
     private DefaultListModel<String> modeloUsuarios = new DefaultListModel<>();
-    private JList<String> listaChats;
+    private JList<ChatPreview> listaChats;
     private JList<String> listaCanales;
     private JList<String> listaUsuarios;
     private JPanel panelCentral;
@@ -37,6 +38,7 @@ public class ChatUI extends JPanel {
     private JButton btnCrearCanal;
     private JButton btnInvitarUsuarios;
     private JButton btnVerInvitaciones;
+    private JButton btnCerrarSesion;
     private JPanel panelUsuarioActual;
 
     // ⚙️ Datos
@@ -48,6 +50,22 @@ public class ChatUI extends JPanel {
     private Canal canalActual; // canal seleccionado
     private CanalController canalController;
     private RepositorioLocal repositorioLocal;
+    private LogoutListener logoutListener;
+
+    private JPanel panelInferior;
+    private CardLayout cardLayoutInferior;
+    private JPanel panelModoTexto;
+    private JPanel panelModoGrabacion;
+    private AudioRecorderPanel audioRecorderPanel;
+
+
+    public interface LogoutListener {
+        void onLogout();
+    }
+
+    public void setLogoutListener(LogoutListener listener) {
+        this.logoutListener = listener;
+    }
 
     public ChatUI() {
         setLayout(new BorderLayout(10, 10));
@@ -72,8 +90,15 @@ public class ChatUI extends JPanel {
 
         JTabbedPane pestañas = new JTabbedPane();
 
-        // 🟢 TAB de chats privados
         listaChats = new JList<>(modeloChats);
+        listaChats.setCellRenderer(new ChatPreviewCellRenderer());
+        listaChats.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent evt) {
+                if (evt.getClickCount() == 2 && listaChats.getSelectedIndex() != -1) {
+                    abrirChatDesdePreview(listaChats.getSelectedIndex());
+                }
+            }
+        });
         pestañas.addTab("Chats", new JScrollPane(listaChats));
 
         // 🟢 TAB de canales
@@ -154,17 +179,196 @@ public class ChatUI extends JPanel {
         btnCrearCanal = new JButton("➕ Crear Canal");
         btnInvitarUsuarios = new JButton("👥 Invitar Usuarios");
         btnVerInvitaciones = new JButton("📬 Ver Invitaciones");
+        btnCerrarSesion = new JButton("🚪 Cerrar Sesión");
 
         btnCrearCanal.addActionListener(e -> mostrarPanelCrearCanal());
         btnInvitarUsuarios.addActionListener(e -> mostrarPanelInvitarUsuarios());
         btnVerInvitaciones.addActionListener(e -> mostrarPanelInvitaciones());
+        btnCerrarSesion.addActionListener(e -> cerrarSesion());
 
         panelBotones.add(btnCrearCanal);
         panelBotones.add(btnInvitarUsuarios);
         panelBotones.add(btnVerInvitaciones);
+        panelBotones.add(btnCerrarSesion);
         lateral.add(panelBotones, BorderLayout.SOUTH);
 
         add(lateral, BorderLayout.WEST);
+    }
+
+    private class ChatPreviewCellRenderer extends JPanel implements ListCellRenderer<ChatPreview> {
+        private JLabel lblNombre;
+        private JLabel lblUltimoMensaje;
+        private JLabel lblFecha;
+        private JLabel lblFoto;
+
+        public ChatPreviewCellRenderer() {
+            setLayout(new BorderLayout(8, 4));
+            setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+            lblFoto = new JLabel();
+            lblFoto.setPreferredSize(new Dimension(40, 40));
+
+            JPanel panelTexto = new JPanel(new BorderLayout(2, 2));
+            panelTexto.setOpaque(false);
+
+            lblNombre = new JLabel();
+            lblNombre.setFont(new Font("Arial", Font.BOLD, 13));
+
+            lblUltimoMensaje = new JLabel();
+            lblUltimoMensaje.setFont(new Font("Arial", Font.PLAIN, 11));
+            lblUltimoMensaje.setForeground(Color.GRAY);
+
+            lblFecha = new JLabel();
+            lblFecha.setFont(new Font("Arial", Font.PLAIN, 10));
+            lblFecha.setForeground(Color.GRAY);
+            lblFecha.setHorizontalAlignment(SwingConstants.RIGHT);
+
+            panelTexto.add(lblNombre, BorderLayout.NORTH);
+            panelTexto.add(lblUltimoMensaje, BorderLayout.CENTER);
+
+            add(lblFoto, BorderLayout.WEST);
+            add(panelTexto, BorderLayout.CENTER);
+            add(lblFecha, BorderLayout.EAST);
+        }
+
+        @Override
+        public Component getListCellRendererComponent(JList<? extends ChatPreview> list, ChatPreview preview,
+                                                      int index, boolean isSelected, boolean cellHasFocus) {
+            if (preview != null) {
+                lblNombre.setText(preview.getNombreContacto());
+                lblUltimoMensaje.setText(preview.getUltimoMensaje() != null ? preview.getUltimoMensaje() : "Sin mensajes");
+
+                // Formatear fecha
+                if (preview.getFechaUltimoMensaje() != null) {
+                    java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+                    lblFecha.setText(preview.getFechaUltimoMensaje().format(formatter));
+                } else {
+                    lblFecha.setText("");
+                }
+
+                // Foto del contacto
+                if (preview.getFotoBase64() != null && !preview.getFotoBase64().isEmpty()) {
+                    try {
+                        byte[] bytes = Base64.getDecoder().decode(preview.getFotoBase64());
+                        ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+                        BufferedImage img = ImageIO.read(bis);
+                        if (img != null) {
+                            Image scaled = img.getScaledInstance(40, 40, Image.SCALE_SMOOTH);
+                            lblFoto.setIcon(new ImageIcon(scaled));
+                        } else {
+                            lblFoto.setIcon(new ImageIcon(crearIconoTexto("👤", 40, 40)));
+                        }
+                    } catch (Exception ex) {
+                        lblFoto.setIcon(new ImageIcon(crearIconoTexto("👤", 40, 40)));
+                    }
+                } else {
+                    lblFoto.setIcon(new ImageIcon(crearIconoTexto("👤", 40, 40)));
+                }
+            }
+
+            if (isSelected) {
+                setBackground(new Color(0xD0E8FF));
+            } else {
+                setBackground(Color.WHITE);
+            }
+
+            return this;
+        }
+    }
+
+    private void cerrarSesion() {
+        int confirmacion = JOptionPane.showConfirmDialog(
+                this,
+                "¿Estás seguro de que deseas cerrar sesión?",
+                "Confirmar cierre de sesión",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (confirmacion == JOptionPane.YES_OPTION) {
+            try {
+                // Enviar mensaje "Exit" al servidor
+                if (gestorComunicacion != null && gestorComunicacion.estaConectado()) {
+                    gestorComunicacion.enviarMensajeExit();
+                    System.out.println("[v0] Mensaje Exit enviado al servidor");
+                }
+
+                // Cerrar sesión en la base de datos local
+                if (repositorioLocal != null && usuarioActual != null) {
+                    repositorioLocal.cerrarTodasLasSesiones(usuarioActual.getCorreo());
+                    System.out.println("[v0] Sesión cerrada en base de datos local");
+                }
+
+                // Notificar al listener (ClienteUI)
+                if (logoutListener != null) {
+                    logoutListener.onLogout();
+                }
+
+            } catch (Exception ex) {
+                System.err.println("Error al cerrar sesión: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this,
+                        "Error al cerrar sesión: " + ex.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void abrirChatDesdePreview(int indice) {
+        if (indice < 0 || indice >= modeloChats.getSize()) return;
+
+        ChatPreview preview = modeloChats.getElementAt(indice);
+
+        // Buscar el usuario correspondiente
+        Usuario destino = null;
+        if (usuariosVisibles != null) {
+            for (Usuario u : usuariosVisibles) {
+                if (u.getCorreo().equals(preview.getCorreoContacto())) {
+                    destino = u;
+                    break;
+                }
+            }
+        }
+
+        if (destino == null) {
+            // Crear usuario temporal si no está en la lista
+            destino = new Usuario(
+                    preview.getCorreoContacto(),
+                    preview.getNombreContacto(),
+                    preview.getCorreoContacto(),
+                    "",
+                    ""
+            );
+            destino.setFotoBase64(preview.getFotoBase64());
+        }
+
+        mostrarChatCon(destino);
+    }
+
+    public void cargarChatPreviews() {
+        if (repositorioLocal == null || usuarioActual == null) return;
+
+        modeloChats.clear();
+        List<ChatPreview> previews = repositorioLocal.obtenerChatPreviews(usuarioActual.getCorreo());
+
+        if (previews.isEmpty()) {
+            // Mostrar mensaje de que no hay chats
+            System.out.println("[v0] No hay chats previos");
+        } else {
+            for (ChatPreview preview : previews) {
+                // Buscar foto del contacto si está disponible
+                if (usuariosVisibles != null) {
+                    for (Usuario u : usuariosVisibles) {
+                        if (u.getCorreo().equals(preview.getCorreoContacto())) {
+                            preview.setFotoBase64(u.getFotoBase64());
+                            preview.setNombreContacto(u.getNombre());
+                            break;
+                        }
+                    }
+                }
+                modeloChats.addElement(preview);
+            }
+        }
     }
 
     /** ------------------------------- */
@@ -230,22 +434,143 @@ public class ChatUI extends JPanel {
         scrollMensajes.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         chatPanel.add(scrollMensajes, BorderLayout.CENTER);
 
-        JPanel inferior = new JPanel(new BorderLayout(5, 5));
-        tfMensaje = new JTextField();
-        btnEnviar = new JButton("Enviar");
-        btnAudio = new JButton("🎤");
-        inferior.add(btnAudio, BorderLayout.WEST);
-        inferior.add(tfMensaje, BorderLayout.CENTER);
-        inferior.add(btnEnviar, BorderLayout.EAST);
-        chatPanel.add(inferior, BorderLayout.SOUTH);
-
-        btnEnviar.addActionListener(e -> enviarMensajePrivado());
-        tfMensaje.addActionListener(e -> enviarMensajePrivado());
+        construirPanelInferior();
+        chatPanel.add(panelInferior, BorderLayout.SOUTH);
 
         panelCentral.add(chatPanel, BorderLayout.CENTER);
         panelCentral.revalidate();
         panelCentral.repaint();
     }
+
+    private void construirPanelInferior() {
+        cardLayoutInferior = new CardLayout();
+        panelInferior = new JPanel(cardLayoutInferior);
+
+        // Panel modo texto
+        panelModoTexto = new JPanel(new BorderLayout(5, 5));
+        tfMensaje = new JTextField();
+        btnEnviar = new JButton("Enviar");
+        btnAudio = new JButton("🎤");
+
+        btnAudio.addActionListener(e -> activarModoGrabacion());
+        btnEnviar.addActionListener(e -> enviarMensajePrivado());
+        tfMensaje.addActionListener(e -> enviarMensajePrivado());
+
+        panelModoTexto.add(btnAudio, BorderLayout.WEST);
+        panelModoTexto.add(tfMensaje, BorderLayout.CENTER);
+        panelModoTexto.add(btnEnviar, BorderLayout.EAST);
+
+        // Panel modo grabación
+        panelModoGrabacion = new JPanel(new BorderLayout());
+        audioRecorderPanel = new AudioRecorderPanel(new AudioRecorderPanel.AudioRecordingListener() {
+            @Override
+            public void onAudioGrabado(File archivoAudio, long duracionSegundos) {
+                try {
+                    // Leer el archivo de audio como bytes
+                    byte[] audioData = java.nio.file.Files.readAllBytes(archivoAudio.toPath());
+
+                    // Crear mensaje de audio
+                    MensajeAudioPrivado mensajeAudio = new MensajeAudioPrivado(
+                            java.util.UUID.randomUUID().toString(),
+                            usuarioActual,
+                            usuarioDestino,
+                            archivoAudio.getAbsolutePath(),
+                            duracionSegundos,
+                            audioData
+                    );
+
+                    // Enviar al servidor
+                    enviarMensajeAudio(mensajeAudio);
+
+                    // Guardar en base de datos local
+                    if (repositorioLocal != null) {
+                        repositorioLocal.guardarMensajeAudio(
+                                mensajeAudio.getId(),
+                                usuarioActual.getCorreo(),
+                                usuarioDestino.getCorreo(),
+                                null,
+                                archivoAudio.getAbsolutePath(),
+                                duracionSegundos
+                        );
+                    }
+
+                    // Agregar a la lista de mensajes
+                    modeloMensajes.addElement(mensajeAudio);
+
+                    // Auto-scroll to bottom
+                    SwingUtilities.invokeLater(() -> {
+                        listaMensajes.ensureIndexIsVisible(modeloMensajes.getSize() - 1);
+                    });
+
+                    // Volver a modo texto
+                    activarModoTexto();
+
+                    JOptionPane.showMessageDialog(ChatUI.this,
+                            "Audio enviado exitosamente",
+                            "Éxito",
+                            JOptionPane.INFORMATION_MESSAGE);
+
+                } catch (Exception ex) {
+                    System.err.println("Error enviando audio: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(ChatUI.this,
+                            "Error enviando audio: " + ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                    activarModoTexto();
+                }
+            }
+
+            @Override
+            public void onCancelado() {
+                activarModoTexto();
+            }
+        });
+        panelModoGrabacion.add(audioRecorderPanel, BorderLayout.CENTER);
+
+        // Agregar ambos paneles al CardLayout
+        panelInferior.add(panelModoTexto, "TEXTO");
+        panelInferior.add(panelModoGrabacion, "GRABACION");
+
+        // Mostrar modo texto por defecto
+        cardLayoutInferior.show(panelInferior, "TEXTO");
+    }
+
+    private void activarModoGrabacion() {
+        if (usuarioDestino == null) {
+            JOptionPane.showMessageDialog(this,
+                    "No hay un destinatario seleccionado",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        cardLayoutInferior.show(panelInferior, "GRABACION");
+        audioRecorderPanel.reiniciar();
+    }
+
+    private void activarModoTexto() {
+        cardLayoutInferior.show(panelInferior, "TEXTO");
+        tfMensaje.requestFocus();
+    }
+
+
+    private void enviarMensajeAudio(MensajeAudioPrivado mensajeAudio) {
+        try {
+            // Por ahora, el protocolo de audio se implementará en el servidor
+            // Aquí enviamos la metadata del audio
+            String protocolo = "AUDIO_PRIVADO|" +
+                    mensajeAudio.getReceptorCorreo() + "|" +
+                    mensajeAudio.getDuracionSegundos() + "|" +
+                    java.util.Base64.getEncoder().encodeToString(mensajeAudio.getAudioData());
+
+            gestorComunicacion.enviarMensaje(mensajeAudio);
+            System.out.println("[v0] Mensaje de audio enviado a " + mensajeAudio.getReceptorCorreo());
+
+        } catch (Exception ex) {
+            System.err.println("Error enviando mensaje de audio: " + ex.getMessage());
+            throw new RuntimeException(ex);
+        }
+    }
+
 
     private Image crearIconoTexto(String texto, int ancho, int alto) {
         BufferedImage img = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
@@ -343,6 +668,7 @@ public class ChatUI extends JPanel {
         tfMensaje = new JTextField();
         btnEnviar = new JButton("Enviar");
         btnAudio = new JButton("🎤");
+        btnAudio.setEnabled(false); // Deshabilitar audio en canales por ahora
         inferior.add(btnAudio, BorderLayout.WEST);
         inferior.add(tfMensaje, BorderLayout.CENTER);
         inferior.add(btnEnviar, BorderLayout.EAST);
@@ -381,6 +707,7 @@ public class ChatUI extends JPanel {
                         texto,
                         "PRIVADO"
                 );
+                cargarChatPreviews();
             }
 
             modeloMensajes.addElement(mensaje);
@@ -704,8 +1031,7 @@ public class ChatUI extends JPanel {
     /** MÉTODOS DE ACTUALIZACIÓN */
     /** ------------------------------- */
     public void setChats(List<String> nombres) {
-        modeloChats.clear();
-        for (String n : nombres) modeloChats.addElement(n);
+        System.out.println("[v0] setChats() deprecated, usar cargarChatPreviews()");
     }
 
     public void cargarCanales() {
@@ -740,6 +1066,7 @@ public class ChatUI extends JPanel {
                             contenido,
                             "PRIVADO"
                     );
+                    cargarChatPreviews();
                 }
 
                 // Display message if chat is open with this user
@@ -764,12 +1091,29 @@ public class ChatUI extends JPanel {
         });
 
         actualizarPanelUsuarioActual();
+
+        // Esto se ejecuta en el EDT para asegurar que la UI esté lista
+        SwingUtilities.invokeLater(() -> {
+            if (repositorioLocal != null) {
+                cargarChatPreviews();
+                System.out.println("[v0] Chat previews cargados al iniciar sesión");
+            } else {
+                System.err.println("[v0] No se pueden cargar chat previews: repositorioLocal es null");
+            }
+        });
     }
 
     public void configurarControladorCanales(CanalController controller, RepositorioLocal repo) {
-        this.canalController = controller;
         this.repositorioLocal = repo;
+        this.canalController = controller;
         cargarCanales();
+
+        if (usuarioActual != null && repositorioLocal != null) {
+            SwingUtilities.invokeLater(() -> {
+                cargarChatPreviews();
+                System.out.println("[v0] Chat previews cargados desde configurarControladorCanales");
+            });
+        }
     }
 
     public void setUsuarios(List<Usuario> usuarios) {

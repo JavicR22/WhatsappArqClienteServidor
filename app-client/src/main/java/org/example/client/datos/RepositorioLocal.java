@@ -7,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +56,13 @@ public class RepositorioLocal {
                             ")"
             );
 
+            try {
+                stmt.execute("ALTER TABLE canales ADD COLUMN IF NOT EXISTS descripcion TEXT");
+                System.out.println("✅ Columna 'descripcion' verificada en tabla canales");
+            } catch (SQLException e) {
+                // La columna ya existe, ignorar
+            }
+
             // Tabla de miembros de canales
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS canal_miembros (" +
@@ -85,6 +94,17 @@ public class RepositorioLocal {
                             "contenido TEXT NOT NULL, " +
                             "tipo VARCHAR(50) NOT NULL, " +
                             "fecha_hora TIMESTAMP NOT NULL" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS sesiones (" +
+                            "id VARCHAR(255) PRIMARY KEY, " +
+                            "correo_usuario VARCHAR(255) NOT NULL, " +
+                            "token VARCHAR(255), " +
+                            "fecha_inicio TIMESTAMP NOT NULL, " +
+                            "ultima_actividad TIMESTAMP NOT NULL, " +
+                            "activa BOOLEAN NOT NULL" +
                             ")"
             );
 
@@ -489,6 +509,17 @@ public class RepositorioLocal {
     }
 
     /**
+     * Guarda un mensaje de audio en la base de datos local
+     * El contenido almacena la ruta del archivo de audio
+     */
+    public boolean guardarMensajeAudio(String id, String remitenteCorreo, String destinatarioCorreo,
+                                       String idCanal, String rutaArchivo, long duracionSegundos) {
+        // Guardar como mensaje con tipo AUDIO y la ruta en el contenido
+        String contenido = rutaArchivo + "|" + duracionSegundos;
+        return guardarMensaje(id, remitenteCorreo, destinatarioCorreo, idCanal, contenido, "AUDIO");
+    }
+
+    /**
      * Obtiene los mensajes de una conversación con un usuario
      */
     public List<MensajeTexto> obtenerMensajesConUsuario(String correoUsuario1, String correoUsuario2) {
@@ -570,5 +601,247 @@ public class RepositorioLocal {
         }
 
         return mensajes;
+    }
+
+
+    /**
+     * Guarda una sesión en la base de datos
+     */
+    public boolean guardarSesion(Sesion sesion) {
+        String sql = "INSERT INTO sesiones (id, correo_usuario, token, fecha_inicio, ultima_actividad, activa) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
+
+        Connection conn = null;
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, sesion.getId());
+            stmt.setString(2, sesion.getCorreoUsuario());
+            stmt.setString(3, sesion.getToken());
+            stmt.setTimestamp(4, Timestamp.valueOf(sesion.getFechaInicio()));
+            stmt.setTimestamp(5, Timestamp.valueOf(sesion.getUltimaActividad()));
+            stmt.setBoolean(6, sesion.isActiva());
+
+            int filasAfectadas = stmt.executeUpdate();
+            return filasAfectadas > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error guardando sesión: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
+    }
+
+    /**
+     * Obtiene la sesión activa del usuario
+     */
+    public Optional<Sesion> obtenerSesionActiva(String correoUsuario) {
+        String sql = "SELECT id, correo_usuario, token, fecha_inicio, ultima_actividad, activa " +
+                "FROM sesiones WHERE correo_usuario = ? AND activa = TRUE " +
+                "ORDER BY ultima_actividad DESC LIMIT 1";
+
+        Connection conn = null;
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, correoUsuario);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                Sesion sesion = new Sesion(
+                        rs.getString("id"),
+                        rs.getString("correo_usuario"),
+                        rs.getString("token")
+                );
+                sesion.setFechaInicio(rs.getTimestamp("fecha_inicio").toLocalDateTime());
+                sesion.setUltimaActividad(rs.getTimestamp("ultima_actividad").toLocalDateTime());
+                sesion.setActiva(rs.getBoolean("activa"));
+                return Optional.of(sesion);
+            }
+
+            return Optional.empty();
+
+        } catch (SQLException e) {
+            System.err.println("Error obteniendo sesión activa: " + e.getMessage());
+            return Optional.empty();
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
+    }
+
+    /**
+     * Actualiza la última actividad de una sesión
+     */
+    public boolean actualizarActividadSesion(String idSesion) {
+        String sql = "UPDATE sesiones SET ultima_actividad = CURRENT_TIMESTAMP() WHERE id = ?";
+
+        Connection conn = null;
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, idSesion);
+
+            int filasAfectadas = stmt.executeUpdate();
+            return filasAfectadas > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error actualizando actividad de sesión: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
+    }
+
+    /**
+     * Cierra una sesión (marca como inactiva)
+     */
+    public boolean cerrarSesion(String idSesion) {
+        String sql = "UPDATE sesiones SET activa = FALSE WHERE id = ?";
+
+        Connection conn = null;
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, idSesion);
+
+            int filasAfectadas = stmt.executeUpdate();
+            return filasAfectadas > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error cerrando sesión: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
+    }
+
+    /**
+     * Cierra todas las sesiones de un usuario
+     */
+    public boolean cerrarTodasLasSesiones(String correoUsuario) {
+        String sql = "UPDATE sesiones SET activa = FALSE WHERE correo_usuario = ?";
+
+        Connection conn = null;
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, correoUsuario);
+
+            int filasAfectadas = stmt.executeUpdate();
+            return filasAfectadas > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error cerrando todas las sesiones: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
+    }
+
+
+    /**
+     * Obtiene las vistas previas de todos los chats del usuario
+     */
+    public List<ChatPreview> obtenerChatPreviews(String correoUsuario) {
+        String sql = "SELECT DISTINCT " +
+                "CASE " +
+                "  WHEN m.remitente_correo = ? THEN m.destinatario_correo " +
+                "  ELSE m.remitente_correo " +
+                "END AS contacto_correo, " +
+                "MAX(m.fecha_hora) AS ultima_fecha " +
+                "FROM mensajes m " +
+                "WHERE (m.remitente_correo = ? OR m.destinatario_correo = ?) " +
+                "AND m.id_canal IS NULL " +
+                "GROUP BY contacto_correo " +
+                "ORDER BY ultima_fecha DESC";
+
+        List<ChatPreview> previews = new ArrayList<>();
+        Connection conn = null;
+
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, correoUsuario);
+            stmt.setString(2, correoUsuario);
+            stmt.setString(3, correoUsuario);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                String contactoCorreo = rs.getString("contacto_correo");
+                LocalDateTime ultimaFecha = rs.getTimestamp("ultima_fecha").toLocalDateTime();
+
+                // Obtener el último mensaje
+                String ultimoMensaje = obtenerUltimoMensajeConUsuario(correoUsuario, contactoCorreo);
+
+                ChatPreview preview = new ChatPreview(
+                        java.util.UUID.randomUUID().toString(),
+                        contactoCorreo,
+                        contactoCorreo
+                );
+                preview.setUltimoMensaje(ultimoMensaje);
+                preview.setFechaUltimoMensaje(ultimaFecha);
+                preview.setEsCanal(false);
+
+                previews.add(preview);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Error obteniendo chat previews: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
+
+        return previews;
+    }
+
+    /**
+     * Obtiene el último mensaje intercambiado con un usuario
+     */
+    private String obtenerUltimoMensajeConUsuario(String correoUsuario1, String correoUsuario2) {
+        String sql = "SELECT contenido FROM mensajes " +
+                "WHERE ((remitente_correo = ? AND destinatario_correo = ?) " +
+                "OR (remitente_correo = ? AND destinatario_correo = ?)) " +
+                "AND id_canal IS NULL " +
+                "ORDER BY fecha_hora DESC LIMIT 1";
+
+        Connection conn = null;
+        try {
+            conn = poolConexiones.obtenerConexion();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, correoUsuario1);
+            stmt.setString(2, correoUsuario2);
+            stmt.setString(3, correoUsuario2);
+            stmt.setString(4, correoUsuario1);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                String contenido = rs.getString("contenido");
+                // Truncar si es muy largo
+                return contenido.length() > 50 ? contenido.substring(0, 47) + "..." : contenido;
+            }
+
+            return "Sin mensajes";
+
+        } catch (SQLException e) {
+            System.err.println("Error obteniendo último mensaje: " + e.getMessage());
+            return "Error";
+        } finally {
+            if (conn != null) {
+                poolConexiones.liberarConexion(conn);
+            }
+        }
     }
 }

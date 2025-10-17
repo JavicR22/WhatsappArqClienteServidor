@@ -6,6 +6,7 @@ import org.example.client.controladores.CanalController;
 import org.example.client.datos.PoolConexiones;
 import org.example.client.datos.RepositorioLocal;
 import org.example.client.modelo.Canal;
+import org.example.client.modelo.Sesion;
 import org.example.client.modelo.Usuario;
 import org.example.client.modelo.UsuarioConectado;
 import org.example.client.negocio.AuthBusinessLogic;
@@ -18,11 +19,13 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * ClienteUI actualizado:
  * - Permite conectarse al servidor real o usar modo mock.
  * - La ventana de conexión permanece visible hasta que se conecte o el usuario cierre la ventana.
+ * - Soporta persistencia de sesión y reconexión automática
  */
 public class ClienteUI extends JFrame {
 
@@ -41,6 +44,7 @@ public class ClienteUI extends JFrame {
 
     private final String ipServidor;
     private final int puertoServidor;
+    private Sesion sesionActual;
 
     public ClienteUI(String ipServidor, int puertoServidor, GestorComunicacion gestorYaConectado) {
         this.ipServidor = ipServidor;
@@ -68,6 +72,10 @@ public class ClienteUI extends JFrame {
 
         add(panelPrincipal);
 
+        chatUI.setLogoutListener(() -> {
+            cerrarSesionYVolverAlLogin();
+        });
+
         loginUI.addLoginListener(e -> {
             String correo = loginUI.getUsuario();
             String contrasena = loginUI.getContrasena();
@@ -83,6 +91,7 @@ public class ClienteUI extends JFrame {
             boolean autenticado = authController.autenticar(correo, contrasena);
 
             if (autenticado) {
+                crearYGuardarSesion(correo);
                 mostrarChat();
             } else {
                 JOptionPane.showMessageDialog(this,
@@ -91,6 +100,95 @@ public class ClienteUI extends JFrame {
                         JOptionPane.ERROR_MESSAGE);
             }
         });
+
+        verificarSesionActiva();
+    }
+
+    private void verificarSesionActiva() {
+        // Este método se puede llamar al iniciar para verificar si hay una sesión guardada
+        // Por ahora, simplemente mostramos el login
+        System.out.println("[v0] Verificando sesión activa...");
+    }
+
+    private void crearYGuardarSesion(String correoUsuario) {
+        try {
+            String idSesion = java.util.UUID.randomUUID().toString();
+            String token = java.util.UUID.randomUUID().toString();
+            sesionActual = new Sesion(idSesion, correoUsuario, token);
+
+            if (repositorioLocal != null) {
+                boolean guardado = repositorioLocal.guardarSesion(sesionActual);
+                if (guardado) {
+                    System.out.println("[v0] Sesión guardada correctamente: " + idSesion);
+                } else {
+                    System.err.println("[v0] Error al guardar sesión");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[v0] Error creando sesión: " + e.getMessage());
+        }
+    }
+
+    private void cerrarSesionYVolverAlLogin() {
+        try {
+            // Cerrar sesión en la base de datos
+            if (sesionActual != null && repositorioLocal != null) {
+                repositorioLocal.cerrarSesion(sesionActual.getId());
+                System.out.println("[v0] Sesión cerrada en base de datos");
+            }
+
+            // Cerrar conexión con el servidor
+            if (gestorComunicacion != null && gestorComunicacion.estaConectado()) {
+                gestorComunicacion.cerrarConexion();
+                System.out.println("[v0] Conexión con servidor cerrada");
+            }
+
+            // Limpiar sesión actual
+            sesionActual = null;
+
+            // Volver a la pantalla de login
+            layout.show(panelPrincipal, "login");
+
+            // Mostrar diálogo de reconexión
+            SwingUtilities.invokeLater(() -> {
+                int opcion = JOptionPane.showConfirmDialog(
+                        this,
+                        "Sesión cerrada. ¿Desea conectarse nuevamente?",
+                        "Sesión cerrada",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+
+                if (opcion == JOptionPane.YES_OPTION) {
+                    // Mostrar ventana de conexión
+                    VentanaConexion dialogo = new VentanaConexion(this, ipServidor, puertoServidor);
+                    dialogo.setVisible(true);
+
+                    GestorComunicacion nuevoGestor = dialogo.getGestorConectado();
+                    if (nuevoGestor != null) {
+                        gestorComunicacion = nuevoGestor;
+                        authBusinessLogic = new AuthBusinessLogic(gestorComunicacion);
+                        authController = new AuthController(authBusinessLogic);
+                        JOptionPane.showMessageDialog(this,
+                                "Reconectado exitosamente. Por favor inicie sesión.",
+                                "Reconexión exitosa",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(this,
+                                "No se pudo reconectar. La aplicación se cerrará.",
+                                "Error de reconexión",
+                                JOptionPane.ERROR_MESSAGE);
+                        System.exit(0);
+                    }
+                } else {
+                    System.exit(0);
+                }
+            });
+
+        } catch (Exception e) {
+            System.err.println("[v0] Error al cerrar sesión: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -129,6 +227,35 @@ public class ClienteUI extends JFrame {
 
             canalController = new CanalController(canalBusinessLogic);
 
+            gestorComunicacion.setCanalCreadoListener((idCanal, nombre, descripcion, privado, creadorEmail, creadoEn) -> {
+                SwingUtilities.invokeLater(() -> {
+                    System.out.println("[v0] Procesando CANAL_CREADO: " + nombre);
+
+                    // Crear objeto Canal
+                    List<String> miembros = new ArrayList<>();
+                    miembros.add(creadorEmail);
+                    Canal nuevoCanal = new Canal(idCanal, nombre, descripcion, privado, creadorEmail, miembros, creadoEn);
+
+                    // Guardar en base de datos local
+                    boolean guardado = repositorioLocal.guardarCanal(nuevoCanal);
+                    if (guardado) {
+                        System.out.println("[v0] Canal guardado en base de datos local: " + nombre);
+
+                        // Actualizar UI si chatUI está visible
+                        if (chatUI != null) {
+                            chatUI.cargarCanales();
+                        }
+
+                        JOptionPane.showMessageDialog(this,
+                                "Canal '" + nombre + "' creado exitosamente",
+                                "Canal creado",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        System.err.println("[v0] Error guardando canal en base de datos local");
+                    }
+                });
+            });
+
             System.out.println("✅ Componentes inicializados correctamente");
 
         } catch (Exception e) {
@@ -145,6 +272,10 @@ public class ClienteUI extends JFrame {
         layout.show(panelPrincipal, "chat");
 
         Usuario usuarioActual = authBusinessLogic.obtenerUsuarioActual();
+
+        chatUI.configurarControladorCanales(canalController, repositorioLocal);
+
+        // Ahora configurar la sesión (esto llamará a cargarChatPreviews con repositorioLocal ya configurado)
         chatUI.configurarSesion(usuarioActual, gestorComunicacion);
 
         List<UsuarioConectado> conectados = authBusinessLogic.obtenerUsuariosConectados();
@@ -157,8 +288,6 @@ public class ClienteUI extends JFrame {
         chatUI.setUsuarios(listaUsuarios);
 
         chatUI.setUsuariosConectados(conectados);
-
-        chatUI.configurarControladorCanales(canalController, repositorioLocal);
 
         gestorComunicacion.setMensajeListener(mensaje -> {
             if (mensaje.startsWith("USUARIOS_CONECTADOS|")) {
@@ -173,6 +302,9 @@ public class ClienteUI extends JFrame {
                     }
                     chatUI.setUsuarios(listaActualizada);
                     chatUI.setUsuariosConectados(usuariosActualizados);
+
+                    chatUI.cargarChatPreviews();
+
                     System.out.println("[v0] Lista de usuarios actualizada en la UI: " + usuariosActualizados.size() + " usuarios");
                 });
             }

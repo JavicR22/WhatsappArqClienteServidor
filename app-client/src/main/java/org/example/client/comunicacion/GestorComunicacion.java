@@ -28,12 +28,14 @@ public class GestorComunicacion {
     private String usuarioIdConectado = null;
     private Thread hiloEscucha;
     private MensajeListener mensajeListener;
-    private String fotoUsuarioActual = null;
     private MensajePrivadoListener mensajePrivadoListener;
+    private String fotoUsuarioActual;
 
     // Para compatibilidad con mock existente
     private Mensaje ultimaRespuestaMock = null;
     private List<UsuarioConectado> usuariosConectados = new ArrayList<>();
+
+    private CanalCreadoListener canalCreadoListener;
 
 
     public interface MensajeListener {
@@ -44,12 +46,20 @@ public class GestorComunicacion {
         void onMensajePrivadoRecibido(String emisor, String contenido);
     }
 
+    public interface CanalCreadoListener {
+        void onCanalCreado(String idCanal, String nombre, String descripcion, boolean privado, String creadorEmail, long creadoEn);
+    }
+
     public void setMensajeListener(MensajeListener listener) {
         this.mensajeListener = listener;
     }
 
     public void setMensajePrivadoListener(MensajePrivadoListener listener) {
         this.mensajePrivadoListener = listener;
+    }
+
+    public void setCanalCreadoListener(CanalCreadoListener listener) {
+        this.canalCreadoListener = listener;
     }
 
     public List<UsuarioConectado> getUsuariosConectados() {
@@ -97,6 +107,42 @@ public class GestorComunicacion {
                 while (conectado && (linea = reader.readLine()) != null) {
                     final String mensaje = linea;
                     System.out.println("[v0] Mensaje recibido del servidor: " + mensaje);
+
+                    if (mensaje.startsWith("CANAL_CREADO|")) {
+                        String[] partes = mensaje.split("\\|");
+                        if (partes.length >= 7) {
+                            String idCanal = partes[1];
+                            String nombre = partes[2];
+                            String descripcion = partes[3];
+                            boolean privado = Boolean.parseBoolean(partes[4]);
+                            String creadorEmail = partes[5];
+                            long creadoEn = Long.parseLong(partes[6]);
+
+                            System.out.println("[v0] Canal creado exitosamente: " + nombre + " (ID: " + idCanal + ")");
+
+                            // Notificar al listener
+                            if (canalCreadoListener != null) {
+                                canalCreadoListener.onCanalCreado(idCanal, nombre, descripcion, privado, creadorEmail, creadoEn);
+                            }
+                        }
+                        continue;
+                    }
+
+                    if (mensaje.startsWith("MIS_CANALES|")) {
+                        System.out.println("[v0] Lista de canales recibida del servidor");
+                        if (mensajeListener != null) {
+                            mensajeListener.onMensajeRecibido(mensaje);
+                        }
+                        continue;
+                    }
+
+                    if (mensaje.startsWith("INVITACION_CANAL|")) {
+                        System.out.println("[v0] Invitación a canal recibida");
+                        if (mensajeListener != null) {
+                            mensajeListener.onMensajeRecibido(mensaje);
+                        }
+                        continue;
+                    }
 
                     if (mensaje.startsWith("MSG_TEXT_PRIVADO|")) {
                         String[] partes = mensaje.split("\\|", 3);
@@ -247,6 +293,23 @@ public class GestorComunicacion {
         output.flush();
     }
 
+    /**
+     * Envía el mensaje "Exit" al servidor para cerrar sesión correctamente
+     */
+    public void enviarMensajeExit() throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        if (modoMock) {
+            System.out.println("[v0] Modo mock: simulando envío de Exit");
+            return;
+        }
+
+        output.println("Exit");
+        output.flush();
+        System.out.println("[v0] Mensaje 'Exit' enviado al servidor");
+    }
 
     /**
      * Crea un canal en el servidor
