@@ -4,7 +4,6 @@ import org.example.client.comunicacion.GestorComunicacion;
 import org.example.client.controladores.CanalController;
 import org.example.client.datos.RepositorioLocal;
 import org.example.client.modelo.*;
-import org.example.client.mock.ServidorMock;
 
 import javax.swing.*;
 import java.awt.*;
@@ -594,7 +593,8 @@ public class ChatUI extends JPanel {
         usuariosPanel.add(new JLabel("Selecciona usuarios para invitar:"), BorderLayout.NORTH);
 
         DefaultListModel<String> modeloUsuariosInvitar = new DefaultListModel<>();
-        List<Usuario> usuarios = usuariosVisibles != null ? usuariosVisibles : ServidorMock.obtenerUsuariosVisibles();
+        List<Usuario> usuarios = usuariosVisibles != null ? usuariosVisibles : List.of();
+
         for (Usuario u : usuarios) {
             if (!u.getCorreo().equals(usuarioActual.getCorreo())) {
                 modeloUsuariosInvitar.addElement(u.getNombre() + " (" + u.getCorreo() + ")");

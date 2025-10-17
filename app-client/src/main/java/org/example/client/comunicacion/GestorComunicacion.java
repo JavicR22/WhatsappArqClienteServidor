@@ -203,8 +203,8 @@ public class GestorComunicacion {
 
         if (modoMock) {
             // Simular envío directo al servidor mock
-            Mensaje respuesta = ServidorMock.procesar(mensaje);
-            ultimaRespuestaMock = respuesta;
+            //Mensaje respuesta = ServidorMock.procesar(mensaje);
+            //ultimaRespuestaMock = respuesta;
             return;
         }
 
@@ -245,6 +245,99 @@ public class GestorComunicacion {
         // Otros tipos: enviar línea indicativa
         output.println("UNKNOWN-MSG");
         output.flush();
+    }
+
+
+    /**
+     * Crea un canal en el servidor
+     * Protocolo: CREAR_CANAL|nombre|descripcion|privado|correoCreador
+     */
+    public void crearCanal(String nombre, String descripcion, boolean privado, String correoCreador) throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        String protocolo = "CREAR_CANAL|" + nombre + "|" + descripcion + "|" + privado + "|" + correoCreador;
+        output.println(protocolo);
+        output.flush();
+        System.out.println("[v0] Solicitud de creación de canal enviada: " + protocolo);
+    }
+
+    /**
+     * Invita usuarios a un canal privado
+     * Protocolo: INVITAR_CANAL|idCanal|nombreCanal|correoInvitador|correo1,correo2,correo3
+     */
+    public void invitarUsuariosCanal(String idCanal, String nombreCanal, String correoInvitador, List<String> correosInvitados) throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        String correosStr = String.join(",", correosInvitados);
+        String protocolo = "INVITAR_CANAL|" + idCanal + "|" + nombreCanal + "|" + correoInvitador + "|" + correosStr;
+        output.println(protocolo);
+        output.flush();
+        System.out.println("[v0] Invitaciones enviadas: " + protocolo);
+    }
+
+    /**
+     * Responde a una invitación de canal
+     * Protocolo: RESPONDER_INVITACION|idInvitacion|idCanal|correoUsuario|ACEPTAR/RECHAZAR
+     */
+    public void responderInvitacion(String idInvitacion, String idCanal, String correoUsuario, boolean aceptar) throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        String accion = aceptar ? "ACEPTAR" : "RECHAZAR";
+        String protocolo = "RESPONDER_INVITACION|" + idInvitacion + "|" + idCanal + "|" + correoUsuario + "|" + accion;
+        output.println(protocolo);
+        output.flush();
+        System.out.println("[v0] Respuesta a invitación enviada: " + protocolo);
+    }
+
+    /**
+     * Envía un mensaje a un canal
+     * Protocolo: CANAL|idCanal|contenido
+     */
+    public void enviarMensajeCanal(String idCanal, String contenido) throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        String protocolo = "CANAL|" + idCanal + "|" + contenido;
+        output.println(protocolo);
+        output.flush();
+        System.out.println("[v0] Mensaje enviado al canal " + idCanal + ": " + contenido);
+    }
+
+    /**
+     * Solicita la lista de canales del usuario
+     * Protocolo: OBTENER_MIS_CANALES|correoUsuario
+     */
+    public void solicitarMisCanales(String correoUsuario) throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        String protocolo = "OBTENER_MIS_CANALES|" + correoUsuario;
+        output.println(protocolo);
+        output.flush();
+        System.out.println("[v0] Solicitud de canales enviada para: " + correoUsuario);
+    }
+
+    /**
+     * Verifica si el usuario es creador de un canal
+     * Protocolo: VERIFICAR_CREADOR|idCanal|correoUsuario
+     */
+    public void verificarCreador(String idCanal, String correoUsuario) throws IOException {
+        if (!conectado) {
+            throw new IOException("No hay conexión activa con el servidor.");
+        }
+
+        String protocolo = "VERIFICAR_CREADOR|" + idCanal + "|" + correoUsuario;
+        output.println(protocolo);
+        output.flush();
+        System.out.println("[v0] Verificación de creador enviada: " + protocolo);
     }
 
     /**

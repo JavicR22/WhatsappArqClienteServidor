@@ -5,7 +5,6 @@ import org.example.client.controladores.AuthController;
 import org.example.client.controladores.CanalController;
 import org.example.client.datos.PoolConexiones;
 import org.example.client.datos.RepositorioLocal;
-import org.example.client.mock.ServidorMock;
 import org.example.client.modelo.Canal;
 import org.example.client.modelo.Usuario;
 import org.example.client.modelo.UsuarioConectado;
@@ -42,16 +41,16 @@ public class ClienteUI extends JFrame {
 
     private final String ipServidor;
     private final int puertoServidor;
-    private final boolean usarModoMock;
 
-    public ClienteUI(String ipServidor, int puertoServidor, GestorComunicacion gestorYaConectado, boolean usarModoMock) {
+    public ClienteUI(String ipServidor, int puertoServidor, GestorComunicacion gestorYaConectado) {
         this.ipServidor = ipServidor;
         this.puertoServidor = puertoServidor;
-        this.usarModoMock = usarModoMock;
+
         // Reutilizamos el gestor que ya validó la conexión
         this.gestorComunicacion = gestorYaConectado;
 
-        setTitle("Chat Académico - Cliente" + (usarModoMock ? " (MODO MOCK)" : " (SERVIDOR REAL)"));
+        setTitle("Chat Académico - Cliente (SERVIDOR REAL)");
+
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 600);
         setLocationRelativeTo(null);
@@ -110,7 +109,7 @@ public class ClienteUI extends JFrame {
             // Si gestorComunicacion no fue pasado, crear uno (defensivo) y conectar
             if (gestorComunicacion == null) {
                 gestorComunicacion = new GestorComunicacion();
-                gestorComunicacion.activarModoMock(usarModoMock);
+                gestorComunicacion.activarModoMock(false);
                 boolean conectado = gestorComunicacion.conectar(ipServidor, puertoServidor);
                 if (!conectado) {
                     throw new RuntimeException("No se pudo conectar al servidor desde inicializarComponentes.");
@@ -144,22 +143,6 @@ public class ClienteUI extends JFrame {
 
     public void mostrarChat() {
         layout.show(panelPrincipal, "chat");
-
-        if (usarModoMock) {
-            List<Canal> canalesPredeterminados = ServidorMock.obtenerCanalesPredeterminados();
-
-            List<String> nombresCanales = new java.util.ArrayList<>();
-            for (Canal canal : canalesPredeterminados) {
-                if (canal != null && canal.getNombre() != null) {
-                    nombresCanales.add(canal.getNombre());
-                }
-            }
-
-            chatUI.setChats(nombresCanales);
-
-            List<Usuario> usuarios = ServidorMock.obtenerUsuariosVisibles();
-            chatUI.setUsuarios(usuarios);
-        }
 
         Usuario usuarioActual = authBusinessLogic.obtenerUsuarioActual();
         chatUI.configurarSesion(usuarioActual, gestorComunicacion);
@@ -203,7 +186,6 @@ public class ClienteUI extends JFrame {
     public static class VentanaConexion extends JDialog {
         private final JTextField campoIp;
         private final JTextField campoPuerto;
-        private final JCheckBox checkModoMock;
         private final JButton botonConectar;
         private final JButton botonCancelar;
         private GestorComunicacion gestorConectado = null;
@@ -234,9 +216,6 @@ public class ClienteUI extends JFrame {
             add(campoPuerto, c);
 
             c.gridx = 0; c.gridy = 2; c.gridwidth = 2;
-            checkModoMock = new JCheckBox("Usar servidor simulado (Mock)");
-            checkModoMock.setSelected(false);
-            add(checkModoMock, c);
 
             botonConectar = new JButton("Conectar");
             botonCancelar = new JButton("Cancelar");
@@ -250,7 +229,6 @@ public class ClienteUI extends JFrame {
 
             // Intento de conexión cuando el usuario presiona Conectar
             botonConectar.addActionListener(e -> {
-                usarModoMock = checkModoMock.isSelected();
 
                 String ip = campoIp.getText().trim();
                 String puertoTxt = campoPuerto.getText().trim();
@@ -275,17 +253,18 @@ public class ClienteUI extends JFrame {
                 }
 
                 GestorComunicacion gestorTemp = new GestorComunicacion();
-                gestorTemp.activarModoMock(usarModoMock);
                 boolean conectado = gestorTemp.conectar(ip, puerto);
+
 
                 if (conectado) {
                     // Éxito: guardamos el gestor y cerramos el diálogo
                     this.gestorConectado = gestorTemp;
                     String modo = usarModoMock ? "MOCK" : "REAL";
                     JOptionPane.showMessageDialog(this,
-                            "Conectado exitosamente al servidor (" + modo + ")",
+                            "Conectado exitosamente al servidor real.",
                             "Conexión exitosa",
                             JOptionPane.INFORMATION_MESSAGE);
+
                     setVisible(false);
                 } else {
                     // Falló la conexión: mostramos error y dejamos el diálogo abierto para reintento
@@ -351,7 +330,7 @@ public class ClienteUI extends JFrame {
             int puerto = dialogo.getPuerto();
             boolean usarModoMock = dialogo.isUsarModoMock();
 
-            ClienteUI cliente = new ClienteUI(ip, puerto, gestorConectado, usarModoMock);
+            ClienteUI cliente = new ClienteUI(ip, puerto, gestorConectado);
             cliente.setVisible(true);
         });
     }

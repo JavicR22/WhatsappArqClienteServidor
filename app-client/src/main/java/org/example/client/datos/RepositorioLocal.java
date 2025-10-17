@@ -47,6 +47,7 @@ public class RepositorioLocal {
                     "CREATE TABLE IF NOT EXISTS canales (" +
                             "id VARCHAR(255) PRIMARY KEY, " +
                             "nombre VARCHAR(255) NOT NULL, " +
+                            "descripcion TEXT, " +
                             "privado BOOLEAN NOT NULL, " +
                             "creador_email VARCHAR(255) NOT NULL, " +
                             "creado_en BIGINT NOT NULL" +
@@ -191,7 +192,7 @@ public class RepositorioLocal {
      * Guarda un canal en la base de datos local
      */
     public boolean guardarCanal(Canal canal) {
-        String sql = "INSERT INTO canales (id, nombre, privado, creador_email, creado_en) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO canales (id, nombre, descripcion, privado, creador_email, creado_en) VALUES (?, ?, ?, ?, ?, ?)";
 
         Connection conn = null;
         try {
@@ -199,9 +200,10 @@ public class RepositorioLocal {
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, canal.getId());
             stmt.setString(2, canal.getNombre());
-            stmt.setBoolean(3, canal.isPrivado());
-            stmt.setString(4, canal.getCreadorEmail());
-            stmt.setLong(5, canal.getCreadoEn());
+            stmt.setString(3, canal.getDescripcion());
+            stmt.setBoolean(4, canal.isPrivado());
+            stmt.setString(5, canal.getCreadorEmail());
+            stmt.setLong(6, canal.getCreadoEn());
 
             int filasAfectadas = stmt.executeUpdate();
 
@@ -228,7 +230,7 @@ public class RepositorioLocal {
      * Obtiene todos los canales del usuario actual
      */
     public List<Canal> obtenerCanalesDelUsuario(String correoUsuario) {
-        String sql = "SELECT DISTINCT c.id, c.nombre, c.privado, c.creador_email, c.creado_en " +
+        String sql = "SELECT DISTINCT c.id, c.nombre, c.descripcion, c.privado, c.creador_email, c.creado_en " +
                 "FROM canales c " +
                 "INNER JOIN canal_miembros cm ON c.id = cm.id_canal " +
                 "WHERE cm.correo_usuario = ?";
@@ -248,6 +250,7 @@ public class RepositorioLocal {
                 Canal canal = new Canal(
                         idCanal,
                         rs.getString("nombre"),
+                        rs.getString("descripcion"),
                         rs.getBoolean("privado"),
                         rs.getString("creador_email"),
                         miembros,
@@ -418,7 +421,7 @@ public class RepositorioLocal {
      * Busca un canal por su ID
      */
     public Optional<Canal> buscarCanalPorId(String idCanal) {
-        String sql = "SELECT id, nombre, privado, creador_email, creado_en FROM canales WHERE id = ?";
+        String sql = "SELECT id, nombre, descripcion, privado, creador_email, creado_en FROM canales WHERE id = ?";
 
         Connection conn = null;
         try {
@@ -432,6 +435,7 @@ public class RepositorioLocal {
                 Canal canal = new Canal(
                         rs.getString("id"),
                         rs.getString("nombre"),
+                        rs.getString("descripcion"),
                         rs.getBoolean("privado"),
                         rs.getString("creador_email"),
                         miembros,

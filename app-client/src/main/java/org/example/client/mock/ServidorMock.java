@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Permite chat privado bidireccional y mensajes por canal.
  */
 public class ServidorMock {
-
+/*
     private static final Map<String, Canal> canalesEnServidor = new ConcurrentHashMap<>();
     private static final Map<String, List<MensajeTexto>> mensajesPorCanal = new ConcurrentHashMap<>();
     private static final Map<String, List<MensajeTexto>> mensajesPrivados = new ConcurrentHashMap<>();
@@ -53,7 +53,7 @@ public class ServidorMock {
         mensajesPorCanal.put(general.getId(), new ArrayList<>());
     }
 
-    /** 🔧 Procesamiento principal */
+    /** 🔧 Procesamiento principal
     public static synchronized Mensaje procesar(Mensaje entrada) {
         if (entrada == null)
             return new MensajeRespuesta(UUID.randomUUID().toString(), null, false, "Entrada nula (mock)");
@@ -113,7 +113,7 @@ public class ServidorMock {
     }
 
 
-    /** 🧍‍♂️ Autenticación */
+    /** 🧍‍♂️ Autenticación
     private static Mensaje autenticarUsuario(MensajeAutenticacion m) {
         Usuario usuario = usuariosRegistrados.get(m.getCorreo());
         if (usuario != null && usuario.getContrasena().equals(m.getContrasena())) {
@@ -127,7 +127,7 @@ public class ServidorMock {
         }
     }
 
-    /** 💬 Procesamiento de mensajes de texto */
+    /** 💬 Procesamiento de mensajes de texto
     private static Mensaje procesarMensajeTexto(MensajeTexto mt) {
         if (mt.getDestinatario() == null || mt.getDestinatario().isEmpty())
             return new MensajeRespuesta(UUID.randomUUID().toString(), mt.getRemitente(),
@@ -150,7 +150,7 @@ public class ServidorMock {
         }
     }
 
-    /** 🧱 Crear canal */
+    /** 🧱 Crear canal
     private static Mensaje crearCanal(MensajeCrearCanal c) {
         Canal nuevoCanal = new Canal(
                 UUID.randomUUID().toString(),
@@ -167,7 +167,7 @@ public class ServidorMock {
                 true, "Canal '" + c.getNombre() + "' creado exitosamente (mock)");
     }
 
-    /** 📜 Utilidades */
+    /** 📜 Utilidades
     public static List<Usuario> obtenerUsuariosVisibles() {
         return new ArrayList<>(usuariosRegistrados.values());
     }
@@ -188,4 +188,6 @@ public class ServidorMock {
         else
             return correo2 + ":" + correo1;
     }
+
+ */
 }

@@ -40,29 +40,10 @@ public class CanalBusinessLogic {
                 return false;
             }
 
-            MensajeCrearCanal mensaje = new MensajeCrearCanal(
-                    UUID.randomUUID().toString(),
-                    usuario,
-                    nombre,
-                    descripcion,
-                    privado
-            );
+            gestorComunicacion.crearCanal(nombre, descripcion, privado, usuario.getCorreo());
 
-            gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
-
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                Canal canal = new Canal(nombre, privado, usuario.getCorreo(), new ArrayList<>());
-                repositorioLocal.guardarCanal(canal);
-
-                // Notificar a los observadores
-                servicioNotificaciones.notificar(mensaje);
-
-                System.out.println("✅ Canal creado exitosamente: " + nombre);
-                return true;
-            }
-
-            return false;
+            System.out.println("✅ Solicitud de creación de canal enviada: " + nombre);
+            return true;
 
         } catch (Exception e) {
             System.err.println("Error creando canal: " + e.getMessage());
@@ -81,33 +62,10 @@ public class CanalBusinessLogic {
                 return false;
             }
 
-            MensajeInvitacion mensaje = new MensajeInvitacion(
-                    UUID.randomUUID().toString(),
-                    usuario,
-                    idCanal,
-                    nombreCanal,
-                    correosInvitados
-            );
+            gestorComunicacion.invitarUsuariosCanal(idCanal, nombreCanal, usuario.getCorreo(), correosInvitados);
 
-            gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
-
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                // Crear solicitudes localmente para cada usuario invitado
-                for (String correo : correosInvitados) {
-                    Solicitud solicitud = new Solicitud(
-                            UUID.randomUUID().toString(),
-                            correo,
-                            idCanal
-                    );
-                    repositorioLocal.guardarSolicitud(solicitud);
-                }
-
-                System.out.println("✅ Invitaciones enviadas exitosamente");
-                return true;
-            }
-
-            return false;
+            System.out.println("✅ Invitaciones enviadas exitosamente");
+            return true;
 
         } catch (Exception e) {
             System.err.println("Error invitando usuarios: " + e.getMessage());
@@ -126,35 +84,14 @@ public class CanalBusinessLogic {
                 return false;
             }
 
-            MensajeRespuestaInvitacion mensaje = new MensajeRespuestaInvitacion(
-                    UUID.randomUUID().toString(),
-                    usuario,
-                    idSolicitud,
-                    idCanal,
-                    aceptar
-            );
+            gestorComunicacion.responderInvitacion(idSolicitud, idCanal, usuario.getCorreo(), aceptar);
 
-            gestorComunicacion.enviarMensaje(mensaje);
-            Mensaje respuesta = gestorComunicacion.recibirMensaje();
+            // Actualizar estado de la solicitud localmente
+            String nuevoEstado = aceptar ? "ACEPTADA" : "RECHAZADA";
+            repositorioLocal.actualizarEstadoSolicitud(idSolicitud, nuevoEstado);
 
-            if (respuesta instanceof MensajeRespuesta mr && mr.isExito()) {
-                // Actualizar estado de la solicitud localmente
-                String nuevoEstado = aceptar ? "ACEPTADA" : "RECHAZADA";
-                repositorioLocal.actualizarEstadoSolicitud(idSolicitud, nuevoEstado);
-
-                // Si se aceptó, agregar al usuario como miembro del canal
-                if (aceptar) {
-                    repositorioLocal.agregarMiembroCanal(idCanal, usuario.getCorreo());
-                }
-
-                // Notificar a los observadores
-                servicioNotificaciones.notificar(mensaje);
-
-                System.out.println("✅ Invitación " + (aceptar ? "aceptada" : "rechazada"));
-                return true;
-            }
-
-            return false;
+            System.out.println("✅ Invitación " + (aceptar ? "aceptada" : "rechazada"));
+            return true;
 
         } catch (Exception e) {
             System.err.println("Error respondiendo invitación: " + e.getMessage());
